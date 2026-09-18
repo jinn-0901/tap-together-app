@@ -54,6 +54,15 @@ body {
   border-radius: 14px;
   line-height: 0;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-wrap img {
+  display: block;
+  width: 90px;
+  height: 90px;
 }
 
 .code-info { text-align: left; }
@@ -303,7 +312,7 @@ body {
 .success-title { font-size: 20px; font-weight: 800; margin: 10px 0 4px; }
 .order-number { color: #d6b98c; }
 
-/* ── 세로 화면(포트레이트) / 좁은 화면 대응 ── */
+/* 세로 화면(포트레이트) / 좁은 화면 대응 */
 @media (max-width: 700px) {
   .kiosk-card.wide {
     padding: 28px 20px;
