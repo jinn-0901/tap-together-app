@@ -100,11 +100,13 @@ export default function App() {
         setCart([]);
         setPaymentStatus("idle");
         setOrderNumber(null);
+        // 결제 완료 후 다음 손님을 위해 코드도 새로 발급
+        handleRegenerateCode();
       }, 3000);
     }, 1500);
   };
 
-  // 경로 형식 QR 값 (예: https://tap-together-app.vercel.app/482913)
+  // 경로 형식 QR 값 (예: https://tap-together-web.vercel.app/482913)
   const qrValue = `${REMOTE_SITE_URL}/${kioskCode}`;
 
   const formatTime = (sec) => {
