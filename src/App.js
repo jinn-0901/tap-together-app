@@ -19,8 +19,8 @@ const MENU = [
   { id: "lemonade", name: "레모네이드", price: 4000, category: "ade", icon: "🍋" },
 ];
 
-// 원격 제어 웹사이트 주소 - 실제 실행 중인 포트로 맞춰주세요
-const REMOTE_SITE_URL = "http://localhost:3000";
+// .env의 REACT_APP_REMOTE_SITE_URL을 읽고, 없으면 로컬 주소로 대체
+const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
 
 const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 const generateOrderNumber = () => Math.floor(100 + Math.random() * 900);
@@ -104,7 +104,7 @@ export default function App() {
     }, 1500);
   };
 
-  // 경로 형식 QR 값 (예: http://localhost:3000/482913)
+  // 경로 형식 QR 값 (예: https://tap-together-app.vercel.app/482913)
   const qrValue = `${REMOTE_SITE_URL}/${kioskCode}`;
 
   const formatTime = (sec) => {
