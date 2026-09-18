@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
 
 const CATEGORIES = [
@@ -19,13 +20,43 @@ const MENU = [
   { id: "lemonade", name: "레모네이드", price: 4000, category: "ade", icon: "🍋" },
 ];
 
+// 원격 제어 웹사이트 주소 - 실제 실행 중인 포트로 맞춰주세요
+const REMOTE_SITE_URL = "http://localhost:3000";
+
+const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 const generateOrderNumber = () => Math.floor(100 + Math.random() * 900);
+const CODE_TTL_MS = 10 * 60 * 1000; // 10분
 
 export default function App() {
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle"); // idle | processing | done
   const [orderNumber, setOrderNumber] = useState(null);
+
+  const [kioskCode, setKioskCode] = useState(generateCode());
+  const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
+  const [remainingSec, setRemainingSec] = useState(CODE_TTL_MS / 1000);
+
+  // 1초마다 남은 시간 갱신, 0이 되면 코드 자동 재생성
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - codeCreatedAt;
+      const remaining = Math.max(0, Math.floor((CODE_TTL_MS - elapsed) / 1000));
+      setRemainingSec(remaining);
+
+      if (remaining <= 0) {
+        setKioskCode(generateCode());
+        setCodeCreatedAt(Date.now());
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [codeCreatedAt]);
+
+  const handleRegenerateCode = () => {
+    setKioskCode(generateCode());
+    setCodeCreatedAt(Date.now());
+  };
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
@@ -70,11 +101,36 @@ export default function App() {
     }, 1500);
   };
 
+  // 경로 형식 QR 값 (예: http://localhost:3000/482913)
+  const qrValue = `${REMOTE_SITE_URL}/${kioskCode}`;
+
+  const formatTime = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
   return (
     <div className="kiosk">
       <div className="kiosk-card wide">
         <h1>☕ 우리 카페 키오스크</h1>
         <p className="subtitle">메뉴를 선택해주세요</p>
+
+        <div className="code-box">
+          <div className="qr-wrap">
+            <QRCodeSVG value={qrValue} size={90} bgColor="#ffffff" fgColor="#2d1b12" />
+          </div>
+          <div className="code-info">
+            <p className="code-label">QR을 스캔해서 원격 제어 연결</p>
+            <p className="code-number">{kioskCode}</p>
+            <p className={`code-timer ${remainingSec <= 30 ? "warning" : ""}`}>
+              ⏱️ {formatTime(remainingSec)} 후 만료
+            </p>
+            <button className="refresh-btn" onClick={handleRegenerateCode}>
+              🔄 코드 새로고침
+            </button>
+          </div>
+        </div>
 
         <div className="layout">
           <div className="menu-section">
