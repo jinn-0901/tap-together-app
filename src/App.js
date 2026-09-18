@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
 
 const CATEGORIES = [
@@ -26,6 +25,10 @@ const REMOTE_SITE_URL = "http://localhost:3000";
 const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 const generateOrderNumber = () => Math.floor(100 + Math.random() * 900);
 const CODE_TTL_MS = 10 * 60 * 1000; // 10분
+
+// 외부 QR 이미지 생성 API (설치 없이 <img>로 바로 사용)
+const getQrImageUrl = (value) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(value)}`;
 
 export default function App() {
   const [activeCategory, setActiveCategory] = useState("coffee");
@@ -118,7 +121,7 @@ export default function App() {
 
         <div className="code-box">
           <div className="qr-wrap">
-            <QRCodeSVG value={qrValue} size={90} bgColor="#ffffff" fgColor="#2d1b12" />
+            <img src={getQrImageUrl(qrValue)} alt="원격 제어 연결 QR 코드" width={90} height={90} />
           </div>
           <div className="code-info">
             <p className="code-label">QR을 스캔해서 원격 제어 연결</p>
