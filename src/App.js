@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { KIOSK_TRANSLATIONS } from "./i18n/translations";
+import { io } from "socket.io-client";
+
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
+const socket = io(SERVER_URL);
 
 const CATEGORIES = ["coffee", "latte", "tea", "ade"];
 
@@ -15,16 +19,12 @@ const MENU = [
   { id: "lemonade", price: 4000, category: "ade", icon: "🍋" },
 ];
 
-// 휘핑크림 옵션은 라떼 계열 메뉴에만 표시
 const WHIP_AVAILABLE_IDS = ["cafe-latte", "strawberry-latte", "choco-latte"];
-
-// 옵션별 추가 금액 (원)
 const ADDON_PRICE = { sizeLarge: 500, whip: 500, toppingPearl: 500 };
 
 const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
 const ORDER_COUNTER_KEY = "kiosk-order-counter";
 
-const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 const CODE_TTL_MS = 10 * 60 * 1000;
 
 const getQrImageUrl = (value) =>
@@ -46,7 +46,6 @@ const buildOptionSummary = (t, options) => {
 
 const DEFAULT_OPTIONS = { size: "regular", whip: "none", topping: "none" };
 
-// localStorage에서 마지막 순번을 읽어오고, 없으면 1부터 시작
 const loadOrderCounter = () => {
   try {
     const saved = localStorage.getItem(ORDER_COUNTER_KEY);
@@ -67,10 +66,11 @@ const saveOrderCounter = (value) => {
 export default function App() {
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [cart, setCart] = useState([]);
-  const [paymentStatus, setPaymentStatus] = useState("idle"); // idle | choosing-dine-type | processing | done
+  const [paymentStatus, setPaymentStatus] = useState("idle");
   const [orderNumber, setOrderNumber] = useState(null);
 
-  const [kioskCode, setKioskCode] = useState(generateCode());
+  // 코드는 이제 서버가 발급해줌 — 받기 전까진 null
+  const [kioskCode, setKioskCode] = useState(null);
   const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
   const [remainingSec, setRemainingSec] = useState(CODE_TTL_MS / 1000);
 
@@ -82,40 +82,75 @@ export default function App() {
   const [draftOptions, setDraftOptions] = useState(DEFAULT_OPTIONS);
 
   const orderCounterRef = useRef(loadOrderCounter());
+  const kioskCodeRef = useRef(null); // 소켓 콜백 안에서 최신 코드를 읽기 위한 ref
 
   const t = KIOSK_TRANSLATIONS[kioskLang] || KIOSK_TRANSLATIONS.ko;
 
+  const applyLanguage = (langId) => {
+    if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
+  };
+  const applyLargeText = (isOn) => setLargeText(isOn);
+  const applyHighContrast = (isOn) => setHighContrast(isOn);
+
+  // 서버에 코드 요청 (처음 켤 때는 이전 코드 없이, 새로고침/만료 시엔 이전 코드 같이 보내서 반납)
+  const requestNewCode = () => {
+    socket.emit("request-kiosk-code", kioskCodeRef.current);
+  };
+
+  // 서버가 코드를 내려주면 받아서 화면에 반영
+  useEffect(() => {
+    const onCodeAssigned = ({ code }) => {
+      kioskCodeRef.current = code;
+      setKioskCode(code);
+      setCodeCreatedAt(Date.now());
+    };
+
+    socket.on("kiosk-code-assigned", onCodeAssigned);
+
+    // 페이지 처음 열렸을 때 코드 요청
+    requestNewCode();
+
+    return () => {
+      socket.off("kiosk-code-assigned", onCodeAssigned);
+    };
+  }, []);
+
+  // 리모컨에서 오는 신호를 받아서 실제 화면에 적용
+  useEffect(() => {
+    const onLanguageChanged = ({ lang }) => applyLanguage(lang);
+    const onFeatureToggled = ({ featureId, on }) => {
+      if (featureId === "large-text") applyLargeText(on);
+      if (featureId === "high-contrast") applyHighContrast(on);
+    };
+
+    socket.on("language-changed", onLanguageChanged);
+    socket.on("feature-toggled", onFeatureToggled);
+
+    return () => {
+      socket.off("language-changed", onLanguageChanged);
+      socket.off("feature-toggled", onFeatureToggled);
+    };
+  }, []);
+
+  // 10분마다 만료되면 자동으로 새 코드 요청
   useEffect(() => {
     const interval = setInterval(() => {
       const elapsed = Date.now() - codeCreatedAt;
       const remaining = Math.max(0, Math.floor((CODE_TTL_MS - elapsed) / 1000));
       setRemainingSec(remaining);
       if (remaining <= 0) {
-        setKioskCode(generateCode());
-        setCodeCreatedAt(Date.now());
+        requestNewCode();
       }
     }, 1000);
     return () => clearInterval(interval);
   }, [codeCreatedAt]);
 
-  // ── 나중에 서버(socket)에서 신호가 오면 이 함수들만 호출하면 됨 ──
-  // eslint-disable-next-line no-unused-vars
-  const applyLanguage = (langId) => {
-    if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
-  };
-  // eslint-disable-next-line no-unused-vars
-  const applyLargeText = (isOn) => setLargeText(isOn);
-  // eslint-disable-next-line no-unused-vars
-  const applyHighContrast = (isOn) => setHighContrast(isOn);
-
   const handleRegenerateCode = () => {
-    setKioskCode(generateCode());
-    setCodeCreatedAt(Date.now());
+    requestNewCode();
   };
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
-  // 메뉴 클릭 → 바로 담지 않고 옵션 선택창부터 열기
   const openOptions = (item) => {
     setOptionsFor(item);
     setDraftOptions(DEFAULT_OPTIONS);
@@ -125,7 +160,6 @@ export default function App() {
     setOptionsFor(null);
   };
 
-  // 옵션 확정 → 장바구니에 담기
   const confirmAddToCart = () => {
     if (!optionsFor) return;
     const item = optionsFor;
@@ -159,13 +193,11 @@ export default function App() {
   const totalPrice = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
   const totalCount = cart.reduce((sum, c) => sum + c.qty, 0);
 
-  // 결제하기 누르면 바로 결제하지 않고, 먼저 먹고갈지/포장인지 물어봄
   const handleCheckoutClick = () => {
     if (cart.length === 0) return;
     setPaymentStatus("choosing-dine-type");
   };
 
-  // 먹고가기/포장 중 아무거나 눌러도 똑같이 결제 진행 (선택값 자체는 저장하지 않음)
   const startPayment = () => {
     setPaymentStatus("processing");
 
@@ -180,12 +212,12 @@ export default function App() {
         setCart([]);
         setPaymentStatus("idle");
         setOrderNumber(null);
-        handleRegenerateCode();
+        handleRegenerateCode(); // 결제 끝나면 다음 손님을 위해 새 코드 요청
       }, 3000);
     }, 1500);
   };
 
-  const qrValue = `${REMOTE_SITE_URL}/${kioskCode}`;
+  const qrValue = kioskCode ? `${REMOTE_SITE_URL}/${kioskCode}` : "";
 
   const formatTime = (sec) => {
     const m = Math.floor(sec / 60);
@@ -203,11 +235,15 @@ export default function App() {
 
         <div className="code-box">
           <div className="qr-wrap">
-            <img src={getQrImageUrl(qrValue)} alt="QR" width={90} height={90} />
+            {kioskCode ? (
+              <img src={getQrImageUrl(qrValue)} alt="QR" width={90} height={90} />
+            ) : (
+              <div style={{ width: 90, height: 90 }} />
+            )}
           </div>
           <div className="code-info">
             <p className="code-label">{t.codeLabel}</p>
-            <p className="code-number">{kioskCode}</p>
+            <p className="code-number">{kioskCode || "------"}</p>
             <p className={`code-timer ${remainingSec <= 30 ? "warning" : ""}`}>
               ⏱️ {formatTime(remainingSec)} {t.expireSuffix}
             </p>
@@ -299,7 +335,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* 메뉴 옵션 선택 오버레이 */}
       {optionsFor && (
         <div className="payment-overlay" onClick={closeOptions}>
           <div className="options-box" onClick={(e) => e.stopPropagation()}>
@@ -378,7 +413,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 먹고가기 / 포장 선택 오버레이 (선택값은 저장 안 하고, 눌렀다는 사실만으로 결제 진행) */}
       {paymentStatus === "choosing-dine-type" && (
         <div className="payment-overlay">
           <div className="dine-type-box">
