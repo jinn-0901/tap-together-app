@@ -312,6 +312,10 @@ body {
 .success-title { font-size: 20px; font-weight: 800; margin: 10px 0 4px; }
 .order-number { color: #d6b98c; }
 
+/* 큰 글자 모드 */
+.kiosk.large .kiosk-card { font-size: 1.15em; }
+.kiosk.large h1 { font-size: 34px; }
+
 /* 세로 화면(포트레이트) / 좁은 화면 대응 */
 @media (max-width: 700px) {
   .kiosk-card.wide {
