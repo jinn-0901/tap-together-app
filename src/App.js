@@ -117,7 +117,6 @@ export default function App() {
   const applyLargeText = (isOn) => setLargeText(isOn);
   const applyHighContrast = (isOn) => setHighContrast(isOn);
 
-  // 리모컨이 연결되어 있으면 리모컨에게 안내를 넘기고, 없으면 키오스크가 직접 말함
   const notify = (message) => {
     if (!voiceGuideRef.current) return;
 
@@ -132,7 +131,6 @@ export default function App() {
 
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    // 사파리는 cancel() 직후 바로 speak()하면 소리가 씹히는 버그가 있어서 살짝 텀을 줌
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(message);
       utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
