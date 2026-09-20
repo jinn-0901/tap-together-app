@@ -18,6 +18,21 @@ const ja = {
     "choco-latte": "チョコラテ", "green-tea": "緑茶", "yuja-tea": "ゆず茶",
     "iced-tea": "アイスティー", lemonade: "レモネード",
   },
+  optionsTitle: "オプション選択",
+  sizeLabel: "サイズ",
+  sizeRegular: "普通",
+  sizeLarge: "ラージ (+500ウォン)",
+  toppingLabel: "トッピング",
+  toppingNone: "なし",
+  toppingPearl: "パール追加 (+500ウォン)",
+  whipLabel: "ホイップクリーム追加 (+500ウォン)",
+  addToCartBtn: "カートに追加",
+  closeBtn: "閉じる",
+  dineTypeTitle: "店内でお召し上がりですか？お持ち帰りですか？",
+  dineIn: "店内",
+  takeout: "持ち帰り",
+  confirmDineTypeBtn: "選択完了",
+  dineTypeResultLabel: (label) => `${label}`,
 };
 
 export default ja;
