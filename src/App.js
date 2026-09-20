@@ -71,6 +71,13 @@ const KIOSK_SPEECH_LANG_MAP = {
   vi: "vi-VN",
 };
 
+// 이모지/특수기호를 음성으로 읽기 전에 제거 ("우유잔" 같은 이상한 설명 발음 방지)
+const stripEmoji = (text) =>
+  text
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 export default function App() {
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [cart, setCart] = useState([]);
@@ -116,38 +123,33 @@ export default function App() {
   };
   const applyLargeText = (isOn) => setLargeText(isOn);
   const applyHighContrast = (isOn) => setHighContrast(isOn);
-	// 이모지 등 음성으로 읽으면 이상하게 들리는 특수 문자를 제거
-	const stripEmoji = (text) =>
- 		text
-  	  .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "")
-			.trim();
 
-	const notify = (message) => {
-  	if (!voiceGuideRef.current) return;
-  	const cleanMessage = stripEmoji(message); // 이모지 제거된 버전
+  // 키오스크 상태를 전부 기본값(한국어, 작은글자, 저대비, 음성안내 켜짐)으로 되돌림
+  const resetKioskDefaults = () => {
+    setKioskLang("ko");
+    setLargeText(false);
+    setHighContrast(false);
+    setVoiceGuideOn(true);
+  };
 
-  	if (remoteConnectedRef.current) {
-   		socket.emit("kiosk-activity", {
-      	code: kioskCodeRef.current,
-      	message: cleanMessage,
-      	langId: kioskLangRef.current,
-    	});
-    	return;
-  	}
+  const notify = (message) => {
+    if (!voiceGuideRef.current) return;
+    const cleanMessage = stripEmoji(message);
+    if (!cleanMessage) return;
 
-  	if (!window.speechSynthesis) return;
-  	window.speechSynthesis.cancel();
-  	setTimeout(() => {
-    	const utterance = new SpeechSynthesisUtterance(cleanMessage);
-    	utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
-    	window.speechSynthesis.speak(utterance);
-		}, 50);
-	};
+    if (remoteConnectedRef.current) {
+      socket.emit("kiosk-activity", {
+        code: kioskCodeRef.current,
+        message: cleanMessage,
+        langId: kioskLangRef.current,
+      });
+      return;
+    }
 
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(message);
+      const utterance = new SpeechSynthesisUtterance(cleanMessage);
       utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
       window.speechSynthesis.speak(utterance);
     }, 50);
@@ -175,8 +177,17 @@ export default function App() {
 
   useEffect(() => {
     const onRemoteJoined = () => setRemoteConnected(true);
-    const onRemoteLeft = () => setRemoteConnected(false);
-    const onKioskLeft = () => setRemoteConnected(false);
+
+    // 리모컨이 스스로 나가거나 연결이 끊기면, 키오스크도 기본값으로 되돌림
+    const onRemoteLeft = () => {
+      setRemoteConnected(false);
+      resetKioskDefaults();
+    };
+
+    const onKioskLeft = () => {
+      setRemoteConnected(false);
+      resetKioskDefaults();
+    };
 
     const onLanguageChanged = ({ lang }) => applyLanguage(lang);
     const onFeatureToggled = ({ featureId, on }) => {
@@ -297,10 +308,7 @@ export default function App() {
 
         // 결제 끝나면 리모컨 연결 끊고, 키오스크 상태도 전부 기본값으로 리셋
         socket.emit("kiosk-reset", kioskCodeRef.current);
-        setKioskLang("ko");
-        setLargeText(false);
-        setHighContrast(false);
-        setVoiceGuideOn(true);
+        resetKioskDefaults();
         setRemoteConnected(false);
 
         handleRegenerateCode();
