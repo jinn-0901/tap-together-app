@@ -142,7 +142,7 @@ export default function App() {
     	utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
     	window.speechSynthesis.speak(utterance);
   	}, 50);
-	=};
+	};
 
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
