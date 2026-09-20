@@ -63,13 +63,21 @@ const saveOrderCounter = (value) => {
   }
 };
 
+// 언어 id → 음성 합성 엔진이 쓰는 언어 코드
+const KIOSK_SPEECH_LANG_MAP = {
+  ko: "ko-KR",
+  en: "en-US",
+  zh: "zh-CN",
+  ja: "ja-JP",
+  vi: "vi-VN",
+};
+
 export default function App() {
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle");
   const [orderNumber, setOrderNumber] = useState(null);
 
-  // 코드는 이제 서버가 발급해줌 — 받기 전까진 null
   const [kioskCode, setKioskCode] = useState(null);
   const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
   const [remainingSec, setRemainingSec] = useState(CODE_TTL_MS / 1000);
@@ -78,13 +86,32 @@ export default function App() {
   const [largeText, setLargeText] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
+  // 음성 안내: 리모컨이 연결되어 있으면 리모컨이 읽어주고, 없으면 키오스크가 직접 읽어줌
+  const [voiceGuideOn, setVoiceGuideOn] = useState(true); // 혼자 있을 때를 대비해 기본값 켜짐
+  const [remoteConnected, setRemoteConnected] = useState(false);
+
   const [optionsFor, setOptionsFor] = useState(null);
   const [draftOptions, setDraftOptions] = useState(DEFAULT_OPTIONS);
 
   const orderCounterRef = useRef(loadOrderCounter());
-  const kioskCodeRef = useRef(null); // 소켓 콜백 안에서 최신 코드를 읽기 위한 ref
+  const kioskCodeRef = useRef(null);
+  const kioskLangRef = useRef("ko");
+  const voiceGuideRef = useRef(true);
+  const remoteConnectedRef = useRef(false);
 
   const t = KIOSK_TRANSLATIONS[kioskLang] || KIOSK_TRANSLATIONS.ko;
+
+  useEffect(() => {
+    kioskLangRef.current = kioskLang;
+  }, [kioskLang]);
+
+  useEffect(() => {
+    voiceGuideRef.current = voiceGuideOn;
+  }, [voiceGuideOn]);
+
+  useEffect(() => {
+    remoteConnectedRef.current = remoteConnected;
+  }, [remoteConnected]);
 
   const applyLanguage = (langId) => {
     if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
@@ -92,12 +119,22 @@ export default function App() {
   const applyLargeText = (isOn) => setLargeText(isOn);
   const applyHighContrast = (isOn) => setHighContrast(isOn);
 
-  // 서버에 코드 요청 (처음 켤 때는 이전 코드 없이, 새로고침/만료 시엔 이전 코드 같이 보내서 반납)
+  // 리모컨이 연결되어 있지 않을 때만 키오스크가 직접 소리로 읽어줌
+  const announce = (text) => {
+    if (!voiceGuideRef.current) return;
+    if (remoteConnectedRef.current) return; // 리모컨이 있으면 그쪽이 안내를 맡음
+    if (!window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
+    window.speechSynthesis.speak(utterance);
+  };
+
   const requestNewCode = () => {
     socket.emit("request-kiosk-code", kioskCodeRef.current);
   };
 
-  // 서버가 코드를 내려주면 받아서 화면에 반영
   useEffect(() => {
     const onCodeAssigned = ({ code }) => {
       kioskCodeRef.current = code;
@@ -106,8 +143,6 @@ export default function App() {
     };
 
     socket.on("kiosk-code-assigned", onCodeAssigned);
-
-    // 페이지 처음 열렸을 때 코드 요청
     requestNewCode();
 
     return () => {
@@ -115,24 +150,34 @@ export default function App() {
     };
   }, []);
 
-  // 리모컨에서 오는 신호를 받아서 실제 화면에 적용
+  // 리모컨 연결/해제 신호, 기능/언어 변경 신호 처리
   useEffect(() => {
+    const onRemoteJoined = () => setRemoteConnected(true);
+    const onRemoteLeft = () => setRemoteConnected(false);
+    const onKioskLeft = () => setRemoteConnected(false); // 서버가 코드 재발급으로 방을 새로 만들 때 대비
+
     const onLanguageChanged = ({ lang }) => applyLanguage(lang);
     const onFeatureToggled = ({ featureId, on }) => {
       if (featureId === "large-text") applyLargeText(on);
       if (featureId === "high-contrast") applyHighContrast(on);
+      if (featureId === "voice-guide") setVoiceGuideOn(on);
     };
 
+    socket.on("remote-joined", onRemoteJoined);
+    socket.on("remote-left", onRemoteLeft);
+    socket.on("kiosk-left", onKioskLeft);
     socket.on("language-changed", onLanguageChanged);
     socket.on("feature-toggled", onFeatureToggled);
 
     return () => {
+      socket.off("remote-joined", onRemoteJoined);
+      socket.off("remote-left", onRemoteLeft);
+      socket.off("kiosk-left", onKioskLeft);
       socket.off("language-changed", onLanguageChanged);
       socket.off("feature-toggled", onFeatureToggled);
     };
   }, []);
 
-  // 10분마다 만료되면 자동으로 새 코드 요청
   useEffect(() => {
     const interval = setInterval(() => {
       const elapsed = Date.now() - codeCreatedAt;
@@ -175,6 +220,7 @@ export default function App() {
       return [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
     });
 
+    announce(`${t.menu[item.id]} ${t.addToCartBtn}`);
     closeOptions();
   };
 
@@ -200,6 +246,7 @@ export default function App() {
 
   const startPayment = () => {
     setPaymentStatus("processing");
+    announce(t.processingLabel);
 
     setTimeout(() => {
       const num = orderCounterRef.current;
@@ -207,12 +254,13 @@ export default function App() {
       saveOrderCounter(orderCounterRef.current);
       setOrderNumber(num);
       setPaymentStatus("done");
+      announce(`${t.doneLabel} ${t.orderNumberLabel(num)}`);
 
       setTimeout(() => {
         setCart([]);
         setPaymentStatus("idle");
         setOrderNumber(null);
-        handleRegenerateCode(); // 결제 끝나면 다음 손님을 위해 새 코드 요청
+        handleRegenerateCode();
       }, 3000);
     }, 1500);
   };
