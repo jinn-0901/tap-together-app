@@ -18,6 +18,21 @@ const zh = {
     "choco-latte": "巧克力拿铁", "green-tea": "绿茶", "yuja-tea": "柚子茶",
     "iced-tea": "冰茶", lemonade: "柠檬水",
   },
+  optionsTitle: "选择选项",
+  sizeLabel: "杯型",
+  sizeRegular: "普通",
+  sizeLarge: "大杯 (+500韩元)",
+  toppingLabel: "配料",
+  toppingNone: "无",
+  toppingPearl: "加珍珠 (+500韩元)",
+  whipLabel: "加鲜奶油 (+500韩元)",
+  addToCartBtn: "加入购物车",
+  closeBtn: "关闭",
+  dineTypeTitle: "堂食还是外带？",
+  dineIn: "堂食",
+  takeout: "外带",
+  confirmDineTypeBtn: "确认选择",
+  dineTypeResultLabel: (label) => `${label}`,
 };
 
 export default zh;
