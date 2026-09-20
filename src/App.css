@@ -15,6 +15,7 @@ body {
   justify-content: center;
   padding: 24px;
   position: relative;
+  transition: background 0.2s ease;
 }
 
 .kiosk-card {
@@ -315,6 +316,113 @@ body {
 /* 큰 글자 모드 */
 .kiosk.large .kiosk-card { font-size: 1.15em; }
 .kiosk.large h1 { font-size: 34px; }
+
+/* ── 고대비 모드 ── */
+/* 검은 배경 + 흰 글씨 + 노란색 강조로 명암비를 최대한 확보 */
+.kiosk.high-contrast {
+  background: #000000;
+}
+
+.kiosk.high-contrast .kiosk-card {
+  background: #000000;
+  border: 3px solid #ffffff;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.kiosk.high-contrast h1,
+.kiosk.high-contrast .subtitle,
+.kiosk.high-contrast .code-label,
+.kiosk.high-contrast .code-number,
+.kiosk.high-contrast .code-timer,
+.kiosk.high-contrast .cart-header h2,
+.kiosk.high-contrast .cart-item-name,
+.kiosk.high-contrast .cart-item-price,
+.kiosk.high-contrast .total-row,
+.kiosk.high-contrast .success-title,
+.kiosk.high-contrast .order-number,
+.kiosk.high-contrast .cart-empty {
+  color: #ffffff;
+}
+
+.kiosk.high-contrast .code-box,
+.kiosk.high-contrast .cart-panel,
+.kiosk.high-contrast .cart-item {
+  background: #000000;
+  border: 2px solid #ffffff;
+}
+
+.kiosk.high-contrast .qr-wrap {
+  border: 3px solid #ffffff;
+}
+
+.kiosk.high-contrast .tab {
+  background: #000000;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+}
+
+.kiosk.high-contrast .tab.active {
+  background: #ffd400;
+  color: #000000;
+  border-color: #ffd400;
+  font-weight: 800;
+}
+
+.kiosk.high-contrast .menu-item {
+  background: #000000;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+}
+
+.kiosk.high-contrast .menu-item:hover {
+  background: #1a1a1a;
+}
+
+.kiosk.high-contrast .menu-price {
+  color: #ffd400;
+}
+
+.kiosk.high-contrast .checkout-btn {
+  background: #ffd400;
+  color: #000000;
+  border: 2px solid #ffd400;
+}
+
+.kiosk.high-contrast .checkout-btn:disabled {
+  background: #333333;
+  color: #888888;
+  border-color: #555555;
+}
+
+.kiosk.high-contrast .refresh-btn,
+.kiosk.high-contrast .clear-btn {
+  background: #000000;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+}
+
+.kiosk.high-contrast .qty-controls button {
+  background: #ffd400;
+  color: #000000;
+  border: 1px solid #000000;
+}
+
+.kiosk.high-contrast .remove-btn {
+  background: #000000;
+  border: 2px solid #f87171;
+  color: #f87171;
+}
+
+.kiosk.high-contrast .payment-box {
+  background: #000000;
+  border: 3px solid #ffffff;
+}
+
+.kiosk.high-contrast .cart-badge {
+  background: #ffd400;
+  color: #000000;
+}
 
 /* 세로 화면(포트레이트) / 좁은 화면 대응 */
 @media (max-width: 700px) {
