@@ -18,6 +18,21 @@ const ko = {
     "choco-latte": "초코라떼", "green-tea": "녹차", "yuja-tea": "유자차",
     "iced-tea": "아이스티", lemonade: "레모네이드",
   },
+  optionsTitle: "옵션 선택",
+  sizeLabel: "사이즈",
+  sizeRegular: "보통",
+  sizeLarge: "라지 (+500원)",
+  toppingLabel: "토핑",
+  toppingNone: "없음",
+  toppingPearl: "펄 추가 (+500원)",
+  whipLabel: "휘핑크림 추가 (+500원)",
+  addToCartBtn: "담기",
+  closeBtn: "닫기",
+  dineTypeTitle: "먹고 가시나요? 포장하시나요?",
+  dineIn: "먹고 가기",
+  takeout: "포장하기",
+  confirmDineTypeBtn: "선택 완료",
+  dineTypeResultLabel: (label) => `${label}`,
 };
 
 export default ko;
