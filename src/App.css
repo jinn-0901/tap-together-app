@@ -313,9 +313,45 @@ body {
 .success-title { font-size: 20px; font-weight: 800; margin: 10px 0 4px; }
 .order-number { color: #d6b98c; }
 
-/* 큰 글자 모드 */
-.kiosk.large .kiosk-card { font-size: 1.15em; }
-.kiosk.large h1 { font-size: 34px; }
+/* ── 큰 글자 모드 (제어웹과 동일한 기준 - 본문 28px 이상) ── */
+.kiosk.large .kiosk-card h1 { font-size: 60px !important; }
+.kiosk.large .subtitle { font-size: 30px !important; }
+
+.kiosk.large .code-label { font-size: 26px !important; }
+.kiosk.large .code-number { font-size: 44px !important; }
+.kiosk.large .code-timer { font-size: 24px !important; }
+.kiosk.large .refresh-btn { font-size: 24px !important; padding: 16px 24px !important; }
+
+.kiosk.large .tab { font-size: 28px !important; padding: 22px 32px !important; }
+
+.kiosk.large .menu-item { padding: 36px 20px !important; }
+.kiosk.large .menu-icon { font-size: 52px !important; }
+.kiosk.large .menu-name { font-size: 30px !important; }
+.kiosk.large .menu-price { font-size: 26px !important; }
+
+.kiosk.large .cart-header h2 { font-size: 32px !important; }
+.kiosk.large .cart-badge { font-size: 22px !important; padding: 6px 14px !important; }
+.kiosk.large .clear-btn { font-size: 22px !important; padding: 12px 20px !important; }
+.kiosk.large .cart-empty { font-size: 28px !important; }
+
+.kiosk.large .cart-item-name { font-size: 28px !important; }
+.kiosk.large .cart-item-price { font-size: 24px !important; }
+.kiosk.large .cart-item-icon { font-size: 40px !important; }
+.kiosk.large .qty-controls button { width: 46px !important; height: 46px !important; font-size: 26px !important; }
+.kiosk.large .qty-controls span { font-size: 26px !important; }
+.kiosk.large .remove-btn { width: 40px !important; height: 40px !important; font-size: 22px !important; }
+
+.kiosk.large .total-row { font-size: 28px !important; }
+.kiosk.large .total-price { font-size: 36px !important; }
+.kiosk.large .checkout-btn { font-size: 32px !important; padding: 26px !important; }
+
+.kiosk.large .payment-box p { font-size: 30px !important; }
+.kiosk.large .success-title { font-size: 38px !important; }
+.kiosk.large .order-number { font-size: 30px !important; }
+
+/* 큰 글자 모드에서는 카드가 넓어져야 하니 폭도 같이 확장 */
+.kiosk.large .kiosk-card.wide { max-width: 1200px !important; }
+.kiosk.large .kiosk-card { padding: 60px !important; }
 
 /* ── 고대비 모드 ── */
 /* 검은 배경 + 흰 글씨 + 노란색 강조로 명암비를 최대한 확보 */
