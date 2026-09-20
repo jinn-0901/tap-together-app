@@ -15,6 +15,9 @@ const MENU = [
   { id: "lemonade", price: 4000, category: "ade", icon: "🍋" },
 ];
 
+// 휘핑크림 옵션은 라떼 계열 메뉴에만 표시
+const WHIP_AVAILABLE_IDS = ["cafe-latte", "strawberry-latte", "choco-latte"];
+
 // 옵션별 추가 금액 (원)
 const ADDON_PRICE = { sizeLarge: 500, whip: 500, toppingPearl: 500 };
 
@@ -30,18 +33,18 @@ const getQrImageUrl = (value) =>
 const computeUnitPrice = (item, options) =>
   item.price +
   (options.size === "large" ? ADDON_PRICE.sizeLarge : 0) +
-  (options.whip ? ADDON_PRICE.whip : 0) +
+  (options.whip === "add" ? ADDON_PRICE.whip : 0) +
   (options.topping === "pearl" ? ADDON_PRICE.toppingPearl : 0);
 
 const buildOptionSummary = (t, options) => {
   const parts = [];
   if (options.size === "large") parts.push(t.sizeLarge.replace(/\s*\(.*\)/, ""));
-  if (options.whip) parts.push(t.whipLabel.replace(/\s*\(.*\)/, ""));
+  if (options.whip === "add") parts.push(t.whipAdd.replace(/\s*\(.*\)/, ""));
   if (options.topping === "pearl") parts.push(t.toppingPearl.replace(/\s*\(.*\)/, ""));
   return parts.join(" · ");
 };
 
-const DEFAULT_OPTIONS = { size: "regular", whip: false, topping: "none" };
+const DEFAULT_OPTIONS = { size: "regular", whip: "none", topping: "none" };
 
 // localStorage에서 마지막 순번을 읽어오고, 없으면 1부터 시작
 const loadOrderCounter = () => {
@@ -49,7 +52,7 @@ const loadOrderCounter = () => {
     const saved = localStorage.getItem(ORDER_COUNTER_KEY);
     return saved ? parseInt(saved, 10) : 1;
   } catch (err) {
-    return 1; // localStorage를 못 쓰는 환경이면(시크릿 모드 등) 그냥 1부터
+    return 1;
   }
 };
 
@@ -57,7 +60,7 @@ const saveOrderCounter = (value) => {
   try {
     localStorage.setItem(ORDER_COUNTER_KEY, String(value));
   } catch (err) {
-    // 저장 실패해도 앱은 계속 동작하게 조용히 무시
+    // 조용히 무시
   }
 };
 
@@ -66,7 +69,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle"); // idle | choosing-dine-type | processing | done
   const [orderNumber, setOrderNumber] = useState(null);
-  const [dineType, setDineType] = useState(null); // "dine-in" | "takeout"
+  const [dineType, setDineType] = useState(null); // "dine-in" | "takeout" (내부 기록용, 화면엔 표시 안 함)
 
   const [kioskCode, setKioskCode] = useState(generateCode());
   const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
@@ -76,11 +79,9 @@ export default function App() {
   const [largeText, setLargeText] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
-  // 지금 옵션을 고르고 있는 메뉴 아이템 (null이면 옵션창 닫힘)
   const [optionsFor, setOptionsFor] = useState(null);
   const [draftOptions, setDraftOptions] = useState(DEFAULT_OPTIONS);
 
-  // 주문 순번 — DB 없이 localStorage로 유지 (새로고침해도 이어짐)
   const orderCounterRef = useRef(loadOrderCounter());
 
   const t = KIOSK_TRANSLATIONS[kioskLang] || KIOSK_TRANSLATIONS.ko;
@@ -98,7 +99,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [codeCreatedAt]);
 
-  // ── 나중에 서버(socket)에서 신호가 오면 이 함수들만 호출하면 됨 ──
   // eslint-disable-next-line no-unused-vars
   const applyLanguage = (langId) => {
     if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
@@ -115,7 +115,6 @@ export default function App() {
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
-  // 메뉴 클릭 → 바로 담지 않고 옵션 선택창부터 열기
   const openOptions = (item) => {
     setOptionsFor(item);
     setDraftOptions(DEFAULT_OPTIONS);
@@ -125,12 +124,11 @@ export default function App() {
     setOptionsFor(null);
   };
 
-  // 옵션 확정 → 장바구니에 담기
   const confirmAddToCart = () => {
     if (!optionsFor) return;
     const item = optionsFor;
     const options = draftOptions;
-    const cartId = `${item.id}|${options.size}|${options.whip ? 1 : 0}|${options.topping}`;
+    const cartId = `${item.id}|${options.size}|${options.whip}|${options.topping}`;
     const unitPrice = computeUnitPrice(item, options);
 
     setCart((prev) => {
@@ -159,14 +157,13 @@ export default function App() {
   const totalPrice = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
   const totalCount = cart.reduce((sum, c) => sum + c.qty, 0);
 
-  // 결제하기 누르면 바로 결제하지 않고, 먼저 먹고갈지/포장인지 물어봄
   const handleCheckoutClick = () => {
     if (cart.length === 0) return;
     setDineType(null);
     setPaymentStatus("choosing-dine-type");
   };
 
-  // 먹고가기/포장 고른 뒤 실제 결제 진행
+  // 먹고가기/포장은 내부적으로만 기록(dineType), 결제 완료 화면엔 표시하지 않음
   const confirmDineType = (type) => {
     setDineType(type);
     setPaymentStatus("processing");
@@ -174,7 +171,7 @@ export default function App() {
     setTimeout(() => {
       const num = orderCounterRef.current;
       orderCounterRef.current += 1;
-      saveOrderCounter(orderCounterRef.current); // 다음 순번을 localStorage에도 저장
+      saveOrderCounter(orderCounterRef.current);
       setOrderNumber(num);
       setPaymentStatus("done");
 
@@ -195,6 +192,8 @@ export default function App() {
     const s = sec % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
+
+  const isWhipAvailable = optionsFor ? WHIP_AVAILABLE_IDS.includes(optionsFor.id) : false;
 
   return (
     <div className={`kiosk ${largeText ? "large" : ""} ${highContrast ? "high-contrast" : ""}`}>
@@ -348,14 +347,26 @@ export default function App() {
               </div>
             </div>
 
-            <label className="options-checkbox-row">
-              <input
-                type="checkbox"
-                checked={draftOptions.whip}
-                onChange={(e) => setDraftOptions((prev) => ({ ...prev, whip: e.target.checked }))}
-              />
-              <span>{t.whipLabel}</span>
-            </label>
+            {/* 휘핑크림은 라떼 계열 메뉴에만 표시, 체크박스 대신 "없음/추가" 버튼 방식 */}
+            {isWhipAvailable && (
+              <div className="options-group">
+                <p className="options-group-label">{t.whipLabel}</p>
+                <div className="options-choice-row">
+                  <button
+                    className={`option-choice ${draftOptions.whip === "none" ? "selected" : ""}`}
+                    onClick={() => setDraftOptions((prev) => ({ ...prev, whip: "none" }))}
+                  >
+                    {t.whipNone}
+                  </button>
+                  <button
+                    className={`option-choice ${draftOptions.whip === "add" ? "selected" : ""}`}
+                    onClick={() => setDraftOptions((prev) => ({ ...prev, whip: "add" }))}
+                  >
+                    {t.whipAdd}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="options-price-row">
               <span>{computeUnitPrice(optionsFor, draftOptions).toLocaleString()}원</span>
@@ -400,11 +411,6 @@ export default function App() {
             <span className="check-icon">✅</span>
             <p className="success-title">{t.doneLabel}</p>
             <p className="order-number">{t.orderNumberLabel(orderNumber)}</p>
-            {dineType && (
-              <p className="dine-type-result">
-                {t.dineTypeResultLabel(dineType === "dine-in" ? t.dineIn : t.takeout)}
-              </p>
-            )}
           </div>
         </div>
       )}
