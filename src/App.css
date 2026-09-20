@@ -36,7 +36,6 @@ body {
 .kiosk-card h1 { font-size: 30px; margin-bottom: 6px; }
 .subtitle { color: #d6b98c; margin-bottom: 24px; }
 
-/* 코드 + QR 박스 */
 .code-box {
   display: flex;
   align-items: center;
@@ -91,7 +90,6 @@ body {
 }
 .refresh-btn:hover { background: rgba(255, 255, 255, 0.1); }
 
-/* 메뉴 + 장바구니 레이아웃 */
 .layout {
   display: flex;
   gap: 24px;
@@ -226,7 +224,6 @@ body {
   cursor: not-allowed;
 }
 
-/* 카테고리 탭 */
 .tabs {
   display: flex;
   gap: 10px;
@@ -253,7 +250,6 @@ body {
   border-color: transparent;
 }
 
-/* 메뉴 그리드 */
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -279,7 +275,6 @@ body {
 .menu-name { font-size: 15px; font-weight: 700; }
 .menu-price { font-size: 13px; color: #d6b98c; }
 
-/* 결제 오버레이 */
 .payment-overlay {
   position: fixed;
   inset: 0;
@@ -314,7 +309,6 @@ body {
 .success-title { font-size: 20px; font-weight: 800; margin: 10px 0 4px; }
 .order-number { color: #d6b98c; }
 
-/* 메뉴 옵션 선택 오버레이 */
 .options-box {
   position: relative;
   background: #1c130c;
@@ -375,16 +369,6 @@ body {
   font-weight: 700;
 }
 
-.options-checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  margin-bottom: 20px;
-  cursor: pointer;
-}
-.options-checkbox-row input { width: 18px; height: 18px; accent-color: #c98a4b; }
-
 .options-price-row {
   text-align: center;
   font-size: 22px;
@@ -393,7 +377,6 @@ body {
   margin-bottom: 16px;
 }
 
-/* 먹고가기 / 포장 선택 오버레이 */
 .dine-type-box {
   background: #1c130c;
   padding: 40px 44px;
@@ -425,13 +408,7 @@ body {
   border-color: transparent;
 }
 
-.dine-type-result {
-  color: #d6b98c;
-  font-size: 16px;
-  margin-top: 4px;
-}
-
-/* ── 큰 글자 모드 (제어웹과 동일한 기준 - 본문 28px 이상) ── */
+/* 큰 글자 모드 */
 .kiosk.large .kiosk-card h1 { font-size: 60px !important; }
 .kiosk.large .subtitle { font-size: 30px !important; }
 
@@ -467,12 +444,23 @@ body {
 .kiosk.large .success-title { font-size: 38px !important; }
 .kiosk.large .order-number { font-size: 30px !important; }
 
-/* 큰 글자 모드에서는 카드가 넓어져야 하니 폭도 같이 확장 */
 .kiosk.large .kiosk-card.wide { max-width: 1200px !important; }
 .kiosk.large .kiosk-card { padding: 60px !important; }
 
-/* ── 고대비 모드 ── */
-/* 검은 배경 + 흰 글씨 + 노란색 강조로 명암비를 최대한 확보 */
+/* 큰 글자 모드 — 메뉴 옵션창 / 먹고가기-포장 선택창 */
+.kiosk.large .options-box { padding: 48px 52px; max-width: 480px; }
+.kiosk.large .options-header h3 { font-size: 28px; }
+.kiosk.large .options-icon { font-size: 44px; }
+.kiosk.large .options-group-label { font-size: 20px; }
+.kiosk.large .option-choice { font-size: 20px; padding: 18px 14px; }
+.kiosk.large .options-price-row { font-size: 30px; }
+.kiosk.large .options-close-btn { width: 44px; height: 44px; font-size: 20px; }
+
+.kiosk.large .dine-type-box { padding: 52px 56px; max-width: 520px; }
+.kiosk.large .dine-type-box h3 { font-size: 28px; }
+.kiosk.large .dine-type-btn { font-size: 22px; padding: 36px 18px; }
+
+/* 고대비 모드 */
 .kiosk.high-contrast {
   background: #000000;
 }
