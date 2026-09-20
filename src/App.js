@@ -420,13 +420,19 @@ export default function App() {
               <div className="options-choice-row">
                 <button
                   className={`option-choice ${draftOptions.size === "regular" ? "selected" : ""}`}
-                  onClick={() => setDraftOptions((prev) => ({ ...prev, size: "regular" }))}
+                  onClick={() => {
+                    setDraftOptions((prev) => ({ ...prev, size: "regular" }));
+                    notify(t.sizeRegular);
+                  }}
                 >
                   {t.sizeRegular}
                 </button>
                 <button
                   className={`option-choice ${draftOptions.size === "large" ? "selected" : ""}`}
-                  onClick={() => setDraftOptions((prev) => ({ ...prev, size: "large" }))}
+                  onClick={() => {
+                    setDraftOptions((prev) => ({ ...prev, size: "large" }));
+                    notify(t.sizeLarge.replace(/\s*\(.*\)/, ""));
+                  }}
                 >
                   {t.sizeLarge}
                 </button>
@@ -438,13 +444,19 @@ export default function App() {
               <div className="options-choice-row">
                 <button
                   className={`option-choice ${draftOptions.topping === "none" ? "selected" : ""}`}
-                  onClick={() => setDraftOptions((prev) => ({ ...prev, topping: "none" }))}
+                  onClick={() => {
+                    setDraftOptions((prev) => ({ ...prev, topping: "none" }));
+                    notify(t.toppingNone);
+                  }}
                 >
                   {t.toppingNone}
                 </button>
                 <button
                   className={`option-choice ${draftOptions.topping === "pearl" ? "selected" : ""}`}
-                  onClick={() => setDraftOptions((prev) => ({ ...prev, topping: "pearl" }))}
+                  onClick={() => {
+                    setDraftOptions((prev) => ({ ...prev, topping: "pearl" }));
+                    notify(t.toppingPearl.replace(/\s*\(.*\)/, ""));
+                  }}
                 >
                   {t.toppingPearl}
                 </button>
@@ -457,13 +469,19 @@ export default function App() {
                 <div className="options-choice-row">
                   <button
                     className={`option-choice ${draftOptions.whip === "none" ? "selected" : ""}`}
-                    onClick={() => setDraftOptions((prev) => ({ ...prev, whip: "none" }))}
+                    onClick={() => {
+                      setDraftOptions((prev) => ({ ...prev, whip: "none" }));
+                      notify(t.whipNone);
+                    }}
                   >
                     {t.whipNone}
                   </button>
                   <button
                     className={`option-choice ${draftOptions.whip === "add" ? "selected" : ""}`}
-                    onClick={() => setDraftOptions((prev) => ({ ...prev, whip: "add" }))}
+                    onClick={() => {
+                      setDraftOptions((prev) => ({ ...prev, whip: "add" }));
+                      notify(t.whipAdd.replace(/\s*\(.*\)/, ""));
+                    }}
                   >
                     {t.whipAdd}
                   </button>
