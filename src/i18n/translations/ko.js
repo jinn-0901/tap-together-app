@@ -1,4 +1,4 @@
-const ko = {
+=const ko = {
   kioskTitle: "☕ 우리 카페 키오스크",
   subtitle: "메뉴를 선택해주세요",
   codeLabel: "QR을 스캔해서 원격 제어 연결",
@@ -25,7 +25,9 @@ const ko = {
   toppingLabel: "토핑",
   toppingNone: "없음",
   toppingPearl: "펄 추가 (+500원)",
-  whipLabel: "휘핑크림 추가 (+500원)",
+  whipLabel: "휘핑크림",
+  whipNone: "없음",
+  whipAdd: "추가 (+500원)",
   addToCartBtn: "담기",
   closeBtn: "닫기",
   dineTypeTitle: "먹고 가시나요? 포장하시나요?",
