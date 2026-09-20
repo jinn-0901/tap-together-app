@@ -63,7 +63,6 @@ const saveOrderCounter = (value) => {
   }
 };
 
-// 언어 id → 음성 합성 엔진이 쓰는 언어 코드
 const KIOSK_SPEECH_LANG_MAP = {
   ko: "ko-KR",
   en: "en-US",
@@ -86,8 +85,7 @@ export default function App() {
   const [largeText, setLargeText] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
-  // 음성 안내: 리모컨이 연결되어 있으면 리모컨이 읽어주고, 없으면 키오스크가 직접 읽어줌
-  const [voiceGuideOn, setVoiceGuideOn] = useState(true); // 혼자 있을 때를 대비해 기본값 켜짐
+  const [voiceGuideOn, setVoiceGuideOn] = useState(true);
   const [remoteConnected, setRemoteConnected] = useState(false);
 
   const [optionsFor, setOptionsFor] = useState(null);
@@ -119,16 +117,27 @@ export default function App() {
   const applyLargeText = (isOn) => setLargeText(isOn);
   const applyHighContrast = (isOn) => setHighContrast(isOn);
 
-  // 리모컨이 연결되어 있지 않을 때만 키오스크가 직접 소리로 읽어줌
-  const announce = (text) => {
+  // 리모컨이 연결되어 있으면 리모컨에게 안내를 넘기고, 없으면 키오스크가 직접 말함
+  const notify = (message) => {
     if (!voiceGuideRef.current) return;
-    if (remoteConnectedRef.current) return; // 리모컨이 있으면 그쪽이 안내를 맡음
-    if (!window.speechSynthesis) return;
 
+    if (remoteConnectedRef.current) {
+      socket.emit("kiosk-activity", {
+        code: kioskCodeRef.current,
+        message,
+        langId: kioskLangRef.current,
+      });
+      return;
+    }
+
+    if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
-    window.speechSynthesis.speak(utterance);
+    // 사파리는 cancel() 직후 바로 speak()하면 소리가 씹히는 버그가 있어서 살짝 텀을 줌
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
+      window.speechSynthesis.speak(utterance);
+    }, 50);
   };
 
   const requestNewCode = () => {
@@ -148,13 +157,13 @@ export default function App() {
     return () => {
       socket.off("kiosk-code-assigned", onCodeAssigned);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 리모컨 연결/해제 신호, 기능/언어 변경 신호 처리
   useEffect(() => {
     const onRemoteJoined = () => setRemoteConnected(true);
     const onRemoteLeft = () => setRemoteConnected(false);
-    const onKioskLeft = () => setRemoteConnected(false); // 서버가 코드 재발급으로 방을 새로 만들 때 대비
+    const onKioskLeft = () => setRemoteConnected(false);
 
     const onLanguageChanged = ({ lang }) => applyLanguage(lang);
     const onFeatureToggled = ({ featureId, on }) => {
@@ -188,6 +197,7 @@ export default function App() {
       }
     }, 1000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeCreatedAt]);
 
   const handleRegenerateCode = () => {
@@ -195,6 +205,11 @@ export default function App() {
   };
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
+
+  const handleCategoryClick = (cat) => {
+    setActiveCategory(cat);
+    notify(t.categories[cat]);
+  };
 
   const openOptions = (item) => {
     setOptionsFor(item);
@@ -220,7 +235,7 @@ export default function App() {
       return [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
     });
 
-    announce(`${t.menu[item.id]} ${t.addToCartBtn}`);
+    notify(`${t.menu[item.id]} ${t.addToCartBtn}`);
     closeOptions();
   };
 
@@ -231,10 +246,15 @@ export default function App() {
   };
 
   const removeItem = (cartId) => {
+    const removed = cart.find((c) => c.cartId === cartId);
     setCart((prev) => prev.filter((c) => c.cartId !== cartId));
+    if (removed) notify(t.menu[removed.id]);
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    setCart([]);
+    notify(t.clearBtn);
+  };
 
   const totalPrice = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
   const totalCount = cart.reduce((sum, c) => sum + c.qty, 0);
@@ -242,11 +262,12 @@ export default function App() {
   const handleCheckoutClick = () => {
     if (cart.length === 0) return;
     setPaymentStatus("choosing-dine-type");
+    notify(t.dineTypeTitle);
   };
 
   const startPayment = () => {
     setPaymentStatus("processing");
-    announce(t.processingLabel);
+    notify(t.processingLabel);
 
     setTimeout(() => {
       const num = orderCounterRef.current;
@@ -254,7 +275,7 @@ export default function App() {
       saveOrderCounter(orderCounterRef.current);
       setOrderNumber(num);
       setPaymentStatus("done");
-      announce(`${t.doneLabel} ${t.orderNumberLabel(num)}`);
+      notify(`${t.doneLabel} ${t.orderNumberLabel(num)}`);
 
       setTimeout(() => {
         setCart([]);
@@ -308,7 +329,7 @@ export default function App() {
                 <button
                   key={cat}
                   className={`tab ${activeCategory === cat ? "active" : ""}`}
-                  onClick={() => setActiveCategory(cat)}
+                  onClick={() => handleCategoryClick(cat)}
                 >
                   {t.categories[cat]}
                 </button>
@@ -466,10 +487,22 @@ export default function App() {
           <div className="dine-type-box">
             <h3>{t.dineTypeTitle}</h3>
             <div className="dine-type-choices">
-              <button className="dine-type-btn" onClick={startPayment}>
+              <button
+                className="dine-type-btn"
+                onClick={() => {
+                  notify(t.dineIn);
+                  startPayment();
+                }}
+              >
                 🍽️ {t.dineIn}
               </button>
-              <button className="dine-type-btn" onClick={startPayment}>
+              <button
+                className="dine-type-btn"
+                onClick={() => {
+                  notify(t.takeout);
+                  startPayment();
+                }}
+              >
                 🥤 {t.takeout}
               </button>
             </div>
