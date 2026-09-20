@@ -279,6 +279,15 @@ export default function App() {
         setCart([]);
         setPaymentStatus("idle");
         setOrderNumber(null);
+
+        // 결제 끝나면 리모컨 연결 끊고, 키오스크 상태도 전부 기본값으로 리셋
+        socket.emit("kiosk-reset", kioskCodeRef.current);
+        setKioskLang("ko");
+        setLargeText(false);
+        setHighContrast(false);
+        setVoiceGuideOn(true);
+        setRemoteConnected(false);
+
         handleRegenerateCode();
       }, 3000);
     }, 1500);
