@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { KIOSK_TRANSLATIONS } from "./i18n/translations";
 
@@ -15,29 +15,73 @@ const MENU = [
   { id: "lemonade", price: 4000, category: "ade", icon: "🍋" },
 ];
 
+// 옵션별 추가 금액 (원)
+const ADDON_PRICE = { sizeLarge: 500, whip: 500, toppingPearl: 500 };
+
 const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
+const ORDER_COUNTER_KEY = "kiosk-order-counter";
 
 const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
-const generateOrderNumber = () => Math.floor(100 + Math.random() * 900);
 const CODE_TTL_MS = 10 * 60 * 1000;
 
 const getQrImageUrl = (value) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(value)}`;
 
+const computeUnitPrice = (item, options) =>
+  item.price +
+  (options.size === "large" ? ADDON_PRICE.sizeLarge : 0) +
+  (options.whip ? ADDON_PRICE.whip : 0) +
+  (options.topping === "pearl" ? ADDON_PRICE.toppingPearl : 0);
+
+const buildOptionSummary = (t, options) => {
+  const parts = [];
+  if (options.size === "large") parts.push(t.sizeLarge.replace(/\s*\(.*\)/, ""));
+  if (options.whip) parts.push(t.whipLabel.replace(/\s*\(.*\)/, ""));
+  if (options.topping === "pearl") parts.push(t.toppingPearl.replace(/\s*\(.*\)/, ""));
+  return parts.join(" · ");
+};
+
+const DEFAULT_OPTIONS = { size: "regular", whip: false, topping: "none" };
+
+// localStorage에서 마지막 순번을 읽어오고, 없으면 1부터 시작
+const loadOrderCounter = () => {
+  try {
+    const saved = localStorage.getItem(ORDER_COUNTER_KEY);
+    return saved ? parseInt(saved, 10) : 1;
+  } catch (err) {
+    return 1; // localStorage를 못 쓰는 환경이면(시크릿 모드 등) 그냥 1부터
+  }
+};
+
+const saveOrderCounter = (value) => {
+  try {
+    localStorage.setItem(ORDER_COUNTER_KEY, String(value));
+  } catch (err) {
+    // 저장 실패해도 앱은 계속 동작하게 조용히 무시
+  }
+};
+
 export default function App() {
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [cart, setCart] = useState([]);
-  const [paymentStatus, setPaymentStatus] = useState("idle");
+  const [paymentStatus, setPaymentStatus] = useState("idle"); // idle | choosing-dine-type | processing | done
   const [orderNumber, setOrderNumber] = useState(null);
+  const [dineType, setDineType] = useState(null); // "dine-in" | "takeout"
 
   const [kioskCode, setKioskCode] = useState(generateCode());
   const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
   const [remainingSec, setRemainingSec] = useState(CODE_TTL_MS / 1000);
 
-  // 기본값: 한국어 + 보통 글자 크기 + 고대비 꺼짐
   const [kioskLang, setKioskLang] = useState("ko");
   const [largeText, setLargeText] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+
+  // 지금 옵션을 고르고 있는 메뉴 아이템 (null이면 옵션창 닫힘)
+  const [optionsFor, setOptionsFor] = useState(null);
+  const [draftOptions, setDraftOptions] = useState(DEFAULT_OPTIONS);
+
+  // 주문 순번 — DB 없이 localStorage로 유지 (새로고침해도 이어짐)
+  const orderCounterRef = useRef(loadOrderCounter());
 
   const t = KIOSK_TRANSLATIONS[kioskLang] || KIOSK_TRANSLATIONS.ko;
 
@@ -60,21 +104,9 @@ export default function App() {
     if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
   };
   // eslint-disable-next-line no-unused-vars
-  const applyLargeText = (isOn) => {
-    setLargeText(isOn);
-  };
+  const applyLargeText = (isOn) => setLargeText(isOn);
   // eslint-disable-next-line no-unused-vars
-  const applyHighContrast = (isOn) => {
-    setHighContrast(isOn);
-  };
-
-  // useEffect(() => {
-  //   socket.on("language-changed", ({ lang }) => applyLanguage(lang));
-  //   socket.on("feature-toggled", ({ featureId, on }) => {
-  //     if (featureId === "large-text") applyLargeText(on);
-  //     if (featureId === "high-contrast") applyHighContrast(on);
-  //   });
-  // }, []);
+  const applyHighContrast = (isOn) => setHighContrast(isOn);
 
   const handleRegenerateCode = () => {
     setKioskCode(generateCode());
@@ -83,43 +115,74 @@ export default function App() {
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
-  const addToCart = (item) => {
-    setCart((prev) => {
-      const existing = prev.find((c) => c.id === item.id);
-      if (existing) {
-        return prev.map((c) => (c.id === item.id ? { ...c, qty: c.qty + 1 } : c));
-      }
-      return [...prev, { ...item, qty: 1 }];
-    });
+  // 메뉴 클릭 → 바로 담지 않고 옵션 선택창부터 열기
+  const openOptions = (item) => {
+    setOptionsFor(item);
+    setDraftOptions(DEFAULT_OPTIONS);
   };
 
-  const changeQty = (id, delta) => {
+  const closeOptions = () => {
+    setOptionsFor(null);
+  };
+
+  // 옵션 확정 → 장바구니에 담기
+  const confirmAddToCart = () => {
+    if (!optionsFor) return;
+    const item = optionsFor;
+    const options = draftOptions;
+    const cartId = `${item.id}|${options.size}|${options.whip ? 1 : 0}|${options.topping}`;
+    const unitPrice = computeUnitPrice(item, options);
+
+    setCart((prev) => {
+      const existing = prev.find((c) => c.cartId === cartId);
+      if (existing) {
+        return prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
+      }
+      return [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
+    });
+
+    closeOptions();
+  };
+
+  const changeQty = (cartId, delta) => {
     setCart((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, qty: c.qty + delta } : c)).filter((c) => c.qty > 0)
+      prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + delta } : c)).filter((c) => c.qty > 0)
     );
   };
 
-  const removeItem = (id) => {
-    setCart((prev) => prev.filter((c) => c.id !== id));
+  const removeItem = (cartId) => {
+    setCart((prev) => prev.filter((c) => c.cartId !== cartId));
   };
 
   const clearCart = () => setCart([]);
 
-  const totalPrice = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
+  const totalPrice = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
   const totalCount = cart.reduce((sum, c) => sum + c.qty, 0);
 
-  const handleCheckout = () => {
+  // 결제하기 누르면 바로 결제하지 않고, 먼저 먹고갈지/포장인지 물어봄
+  const handleCheckoutClick = () => {
     if (cart.length === 0) return;
+    setDineType(null);
+    setPaymentStatus("choosing-dine-type");
+  };
+
+  // 먹고가기/포장 고른 뒤 실제 결제 진행
+  const confirmDineType = (type) => {
+    setDineType(type);
     setPaymentStatus("processing");
 
     setTimeout(() => {
-      setOrderNumber(generateOrderNumber());
+      const num = orderCounterRef.current;
+      orderCounterRef.current += 1;
+      saveOrderCounter(orderCounterRef.current); // 다음 순번을 localStorage에도 저장
+      setOrderNumber(num);
       setPaymentStatus("done");
 
       setTimeout(() => {
         setCart([]);
         setPaymentStatus("idle");
         setOrderNumber(null);
+        setDineType(null);
         handleRegenerateCode();
       }, 3000);
     }, 1500);
@@ -171,10 +234,10 @@ export default function App() {
 
             <div className="menu-grid">
               {filteredMenu.map((item) => (
-                <button key={item.id} className="menu-item" onClick={() => addToCart(item)}>
+                <button key={item.id} className="menu-item" onClick={() => openOptions(item)}>
                   <span className="menu-icon">{item.icon}</span>
                   <span className="menu-name">{t.menu[item.id]}</span>
-                  <span className="menu-price">{item.price.toLocaleString()}원</span>
+                  <span className="menu-price">{item.price.toLocaleString()}원~</span>
                 </button>
               ))}
             </div>
@@ -194,27 +257,33 @@ export default function App() {
               <p className="cart-empty">{t.cartEmpty}</p>
             ) : (
               <div className="cart-list">
-                {cart.map((item) => (
-                  <div key={item.id} className="cart-item">
-                    <div className="cart-item-info">
-                      <span className="cart-item-icon">{item.icon}</span>
-                      <div>
-                        <p className="cart-item-name">{t.menu[item.id]}</p>
-                        <p className="cart-item-price">{item.price.toLocaleString()}원</p>
+                {cart.map((c) => {
+                  const summary = buildOptionSummary(t, c.options);
+                  return (
+                    <div key={c.cartId} className="cart-item">
+                      <div className="cart-item-info">
+                        <span className="cart-item-icon">
+                          {MENU.find((m) => m.id === c.id)?.icon}
+                        </span>
+                        <div>
+                          <p className="cart-item-name">{t.menu[c.id]}</p>
+                          {summary && <p className="cart-item-options">{summary}</p>}
+                          <p className="cart-item-price">{c.unitPrice.toLocaleString()}원</p>
+                        </div>
+                      </div>
+                      <div className="cart-item-actions">
+                        <div className="qty-controls">
+                          <button onClick={() => changeQty(c.cartId, -1)}>-</button>
+                          <span>{c.qty}</span>
+                          <button onClick={() => changeQty(c.cartId, 1)}>+</button>
+                        </div>
+                        <button className="remove-btn" onClick={() => removeItem(c.cartId)}>
+                          ✕
+                        </button>
                       </div>
                     </div>
-                    <div className="cart-item-actions">
-                      <div className="qty-controls">
-                        <button onClick={() => changeQty(item.id, -1)}>-</button>
-                        <span>{item.qty}</span>
-                        <button onClick={() => changeQty(item.id, 1)}>+</button>
-                      </div>
-                      <button className="remove-btn" onClick={() => removeItem(item.id)}>
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -223,13 +292,98 @@ export default function App() {
                 <span>{t.totalCountLabel(totalCount)}</span>
                 <span className="total-price">{totalPrice.toLocaleString()}원</span>
               </div>
-              <button className="checkout-btn" onClick={handleCheckout} disabled={cart.length === 0}>
+              <button className="checkout-btn" onClick={handleCheckoutClick} disabled={cart.length === 0}>
                 {t.checkoutBtn}
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* 메뉴 옵션 선택 오버레이 */}
+      {optionsFor && (
+        <div className="payment-overlay" onClick={closeOptions}>
+          <div className="options-box" onClick={(e) => e.stopPropagation()}>
+            <button className="options-close-btn" onClick={closeOptions} aria-label={t.closeBtn}>
+              ✕
+            </button>
+            <div className="options-header">
+              <span className="options-icon">{optionsFor.icon}</span>
+              <h3>{t.menu[optionsFor.id]}</h3>
+            </div>
+
+            <div className="options-group">
+              <p className="options-group-label">{t.sizeLabel}</p>
+              <div className="options-choice-row">
+                <button
+                  className={`option-choice ${draftOptions.size === "regular" ? "selected" : ""}`}
+                  onClick={() => setDraftOptions((prev) => ({ ...prev, size: "regular" }))}
+                >
+                  {t.sizeRegular}
+                </button>
+                <button
+                  className={`option-choice ${draftOptions.size === "large" ? "selected" : ""}`}
+                  onClick={() => setDraftOptions((prev) => ({ ...prev, size: "large" }))}
+                >
+                  {t.sizeLarge}
+                </button>
+              </div>
+            </div>
+
+            <div className="options-group">
+              <p className="options-group-label">{t.toppingLabel}</p>
+              <div className="options-choice-row">
+                <button
+                  className={`option-choice ${draftOptions.topping === "none" ? "selected" : ""}`}
+                  onClick={() => setDraftOptions((prev) => ({ ...prev, topping: "none" }))}
+                >
+                  {t.toppingNone}
+                </button>
+                <button
+                  className={`option-choice ${draftOptions.topping === "pearl" ? "selected" : ""}`}
+                  onClick={() => setDraftOptions((prev) => ({ ...prev, topping: "pearl" }))}
+                >
+                  {t.toppingPearl}
+                </button>
+              </div>
+            </div>
+
+            <label className="options-checkbox-row">
+              <input
+                type="checkbox"
+                checked={draftOptions.whip}
+                onChange={(e) => setDraftOptions((prev) => ({ ...prev, whip: e.target.checked }))}
+              />
+              <span>{t.whipLabel}</span>
+            </label>
+
+            <div className="options-price-row">
+              <span>{computeUnitPrice(optionsFor, draftOptions).toLocaleString()}원</span>
+            </div>
+
+            <button className="checkout-btn" onClick={confirmAddToCart}>
+              {t.addToCartBtn}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 먹고가기 / 포장 선택 오버레이 */}
+      {paymentStatus === "choosing-dine-type" && (
+        <div className="payment-overlay">
+          <div className="dine-type-box">
+            <h3>{t.dineTypeTitle}</h3>
+            <div className="dine-type-choices">
+              <button className="dine-type-btn" onClick={() => confirmDineType("dine-in")}>
+                🍽️ {t.dineIn}
+              </button>
+              <button className="dine-type-btn" onClick={() => confirmDineType("takeout")}>
+                🥤 {t.takeout}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {paymentStatus === "processing" && (
         <div className="payment-overlay">
@@ -246,6 +400,11 @@ export default function App() {
             <span className="check-icon">✅</span>
             <p className="success-title">{t.doneLabel}</p>
             <p className="order-number">{t.orderNumberLabel(orderNumber)}</p>
+            {dineType && (
+              <p className="dine-type-result">
+                {t.dineTypeResultLabel(dineType === "dine-in" ? t.dineIn : t.takeout)}
+              </p>
+            )}
           </div>
         </div>
       )}
