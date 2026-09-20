@@ -18,6 +18,21 @@ const en = {
     "choco-latte": "Choco Latte", "green-tea": "Green Tea", "yuja-tea": "Yuja Tea",
     "iced-tea": "Iced Tea", lemonade: "Lemonade",
   },
+  optionsTitle: "Choose Options",
+  sizeLabel: "Size",
+  sizeRegular: "Regular",
+  sizeLarge: "Large (+$0.40)",
+  toppingLabel: "Topping",
+  toppingNone: "None",
+  toppingPearl: "Add Pearl (+$0.40)",
+  whipLabel: "Add Whipped Cream (+$0.40)",
+  addToCartBtn: "Add to cart",
+  closeBtn: "Close",
+  dineTypeTitle: "For here or to go?",
+  dineIn: "For here",
+  takeout: "To go",
+  confirmDineTypeBtn: "Confirm",
+  dineTypeResultLabel: (label) => `${label}`,
 };
 
 export default en;
