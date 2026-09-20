@@ -116,18 +116,33 @@ export default function App() {
   };
   const applyLargeText = (isOn) => setLargeText(isOn);
   const applyHighContrast = (isOn) => setHighContrast(isOn);
+	// 이모지 등 음성으로 읽으면 이상하게 들리는 특수 문자를 제거
+	const stripEmoji = (text) =>
+ 		text
+  	  .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "")
+			.trim();
 
   const notify = (message) => {
-    if (!voiceGuideRef.current) return;
+  	if (!voiceGuideRef.current) return;
+  	const cleanMessage = stripEmoji(message); // 이모지 제거된 버전
 
-    if (remoteConnectedRef.current) {
-      socket.emit("kiosk-activity", {
-        code: kioskCodeRef.current,
-        message,
-        langId: kioskLangRef.current,
-      });
-      return;
-    }
+  	if (remoteConnectedRef.current) {
+   		socket.emit("kiosk-activity", {
+      	code: kioskCodeRef.current,
+      	message: cleanMessage,
+      	langId: kioskLangRef.current,
+    	});
+    	return;
+  	}
+
+  	if (!window.speechSynthesis) return;
+  	window.speechSynthesis.cancel();
+  	setTimeout(() => {
+    	const utterance = new SpeechSynthesisUtterance(cleanMessage);
+    	utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
+    	window.speechSynthesis.speak(utterance);
+  	}, 50);
+	=};
 
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
