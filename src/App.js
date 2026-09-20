@@ -122,7 +122,7 @@ export default function App() {
   	  .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "")
 			.trim();
 
-  const notify = (message) => {
+	const notify = (message) => {
   	if (!voiceGuideRef.current) return;
   	const cleanMessage = stripEmoji(message); // 이모지 제거된 버전
 
@@ -141,7 +141,7 @@ export default function App() {
     	const utterance = new SpeechSynthesisUtterance(cleanMessage);
     	utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
     	window.speechSynthesis.speak(utterance);
-  	}, 50);
+		}, 50);
 	};
 
     if (!window.speechSynthesis) return;
