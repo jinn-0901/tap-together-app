@@ -18,6 +18,21 @@ const vi = {
     "choco-latte": "Latte Socola", "green-tea": "Trà Xanh", "yuja-tea": "Trà Yuja",
     "iced-tea": "Trà Đá", lemonade: "Nước Chanh",
   },
+  optionsTitle: "Chọn tùy chọn",
+  sizeLabel: "Kích cỡ",
+  sizeRegular: "Vừa",
+  sizeLarge: "Lớn (+500 won)",
+  toppingLabel: "Topping",
+  toppingNone: "Không có",
+  toppingPearl: "Thêm trân châu (+500 won)",
+  whipLabel: "Thêm kem tươi (+500 won)",
+  addToCartBtn: "Thêm vào giỏ",
+  closeBtn: "Đóng",
+  dineTypeTitle: "Dùng tại quán hay mang đi?",
+  dineIn: "Dùng tại quán",
+  takeout: "Mang đi",
+  confirmDineTypeBtn: "Xác nhận",
+  dineTypeResultLabel: (label) => `${label}`,
 };
 
 export default vi;
