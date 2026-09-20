@@ -69,7 +69,6 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle"); // idle | choosing-dine-type | processing | done
   const [orderNumber, setOrderNumber] = useState(null);
-  const [dineType, setDineType] = useState(null); // "dine-in" | "takeout" (내부 기록용, 화면엔 표시 안 함)
 
   const [kioskCode, setKioskCode] = useState(generateCode());
   const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
@@ -99,6 +98,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [codeCreatedAt]);
 
+  // ── 나중에 서버(socket)에서 신호가 오면 이 함수들만 호출하면 됨 ──
   // eslint-disable-next-line no-unused-vars
   const applyLanguage = (langId) => {
     if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
@@ -115,6 +115,7 @@ export default function App() {
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
+  // 메뉴 클릭 → 바로 담지 않고 옵션 선택창부터 열기
   const openOptions = (item) => {
     setOptionsFor(item);
     setDraftOptions(DEFAULT_OPTIONS);
@@ -124,6 +125,7 @@ export default function App() {
     setOptionsFor(null);
   };
 
+  // 옵션 확정 → 장바구니에 담기
   const confirmAddToCart = () => {
     if (!optionsFor) return;
     const item = optionsFor;
@@ -157,15 +159,14 @@ export default function App() {
   const totalPrice = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
   const totalCount = cart.reduce((sum, c) => sum + c.qty, 0);
 
+  // 결제하기 누르면 바로 결제하지 않고, 먼저 먹고갈지/포장인지 물어봄
   const handleCheckoutClick = () => {
     if (cart.length === 0) return;
-    setDineType(null);
     setPaymentStatus("choosing-dine-type");
   };
 
-  // 먹고가기/포장은 내부적으로만 기록(dineType), 결제 완료 화면엔 표시하지 않음
-  const confirmDineType = (type) => {
-    setDineType(type);
+  // 먹고가기/포장 중 아무거나 눌러도 똑같이 결제 진행 (선택값 자체는 저장하지 않음)
+  const startPayment = () => {
     setPaymentStatus("processing");
 
     setTimeout(() => {
@@ -179,7 +180,6 @@ export default function App() {
         setCart([]);
         setPaymentStatus("idle");
         setOrderNumber(null);
-        setDineType(null);
         handleRegenerateCode();
       }, 3000);
     }, 1500);
@@ -347,7 +347,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* 휘핑크림은 라떼 계열 메뉴에만 표시, 체크박스 대신 "없음/추가" 버튼 방식 */}
             {isWhipAvailable && (
               <div className="options-group">
                 <p className="options-group-label">{t.whipLabel}</p>
@@ -379,16 +378,16 @@ export default function App() {
         </div>
       )}
 
-      {/* 먹고가기 / 포장 선택 오버레이 */}
+      {/* 먹고가기 / 포장 선택 오버레이 (선택값은 저장 안 하고, 눌렀다는 사실만으로 결제 진행) */}
       {paymentStatus === "choosing-dine-type" && (
         <div className="payment-overlay">
           <div className="dine-type-box">
             <h3>{t.dineTypeTitle}</h3>
             <div className="dine-type-choices">
-              <button className="dine-type-btn" onClick={() => confirmDineType("dine-in")}>
+              <button className="dine-type-btn" onClick={startPayment}>
                 🍽️ {t.dineIn}
               </button>
-              <button className="dine-type-btn" onClick={() => confirmDineType("takeout")}>
+              <button className="dine-type-btn" onClick={startPayment}>
                 🥤 {t.takeout}
               </button>
             </div>
