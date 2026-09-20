@@ -34,9 +34,10 @@ export default function App() {
   const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
   const [remainingSec, setRemainingSec] = useState(CODE_TTL_MS / 1000);
 
-  // 기본값: 한국어 + 보통 글자 크기
+  // 기본값: 한국어 + 보통 글자 크기 + 고대비 꺼짐
   const [kioskLang, setKioskLang] = useState("ko");
   const [largeText, setLargeText] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
 
   const t = KIOSK_TRANSLATIONS[kioskLang] || KIOSK_TRANSLATIONS.ko;
 
@@ -53,7 +54,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [codeCreatedAt]);
 
-  // ── 나중에 서버(socket)에서 신호가 오면 이 두 함수만 호출하면 됨 ──
+  // ── 나중에 서버(socket)에서 신호가 오면 이 함수들만 호출하면 됨 ──
   // eslint-disable-next-line no-unused-vars
   const applyLanguage = (langId) => {
     if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
@@ -62,11 +63,16 @@ export default function App() {
   const applyLargeText = (isOn) => {
     setLargeText(isOn);
   };
+  // eslint-disable-next-line no-unused-vars
+  const applyHighContrast = (isOn) => {
+    setHighContrast(isOn);
+  };
 
   // useEffect(() => {
   //   socket.on("language-changed", ({ lang }) => applyLanguage(lang));
   //   socket.on("feature-toggled", ({ featureId, on }) => {
   //     if (featureId === "large-text") applyLargeText(on);
+  //     if (featureId === "high-contrast") applyHighContrast(on);
   //   });
   // }, []);
 
@@ -128,7 +134,7 @@ export default function App() {
   };
 
   return (
-    <div className={`kiosk ${largeText ? "large" : ""}`}>
+    <div className={`kiosk ${largeText ? "large" : ""} ${highContrast ? "high-contrast" : ""}`}>
       <div className="kiosk-card wide">
         <h1>{t.kioskTitle}</h1>
         <p className="subtitle">{t.subtitle}</p>
