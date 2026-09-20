@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+(import { useState, useEffect } from "react";
 import "./App.css";
 import { KIOSK_TRANSLATIONS } from "./i18n/translations";
 
@@ -54,9 +54,11 @@ export default function App() {
   }, [codeCreatedAt]);
 
   // ── 나중에 서버(socket)에서 신호가 오면 이 두 함수만 호출하면 됨 ──
+  // eslint-disable-next-line no-unused-vars
   const applyLanguage = (langId) => {
     if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
   };
+  // eslint-disable-next-line no-unused-vars
   const applyLargeText = (isOn) => {
     setLargeText(isOn);
   };
