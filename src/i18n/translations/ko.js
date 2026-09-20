@@ -1,4 +1,4 @@
-=const ko = {
+const ko = {
   kioskTitle: "☕ 우리 카페 키오스크",
   subtitle: "메뉴를 선택해주세요",
   codeLabel: "QR을 스캔해서 원격 제어 연결",
