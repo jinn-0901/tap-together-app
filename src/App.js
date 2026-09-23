@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
-import { KIOSK_TRANSLATIONS } from "./i18n/translations";
 import { io } from "socket.io-client";
 
 const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
@@ -20,11 +19,13 @@ const MENU = [
 ];
 
 const WHIP_AVAILABLE_IDS = ["cafe-latte", "strawberry-latte", "choco-latte"];
+// 이미 차갑게만 나가는 메뉴는 핫/아이스 선택 자체가 안 뜨게 함
+const FIXED_ICE_IDS = ["iced-tea", "lemonade"];
+
 const ADDON_PRICE = { sizeLarge: 500, whip: 500, toppingPearl: 500 };
 
 const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
 const ORDER_COUNTER_KEY = "kiosk-order-counter";
-
 const CODE_TTL_MS = 10 * 60 * 1000;
 
 const getQrImageUrl = (value) =>
@@ -36,15 +37,18 @@ const computeUnitPrice = (item, options) =>
   (options.whip === "add" ? ADDON_PRICE.whip : 0) +
   (options.topping === "pearl" ? ADDON_PRICE.toppingPearl : 0);
 
-const buildOptionSummary = (t, options) => {
+const buildOptionSummary = (t, options, item) => {
   const parts = [];
+  if (!FIXED_ICE_IDS.includes(item.id)) {
+    parts.push(options.hotIce === "hot" ? t.hotOption : t.iceOption);
+  }
   if (options.size === "large") parts.push(t.sizeLarge.replace(/\s*\(.*\)/, ""));
   if (options.whip === "add") parts.push(t.whipAdd.replace(/\s*\(.*\)/, ""));
   if (options.topping === "pearl") parts.push(t.toppingPearl.replace(/\s*\(.*\)/, ""));
   return parts.join(" · ");
 };
 
-const DEFAULT_OPTIONS = { size: "regular", whip: "none", topping: "none" };
+const DEFAULT_OPTIONS = { size: "regular", whip: "none", topping: "none", hotIce: "hot" };
 
 const loadOrderCounter = () => {
   try {
@@ -63,22 +67,21 @@ const saveOrderCounter = (value) => {
   }
 };
 
-const KIOSK_SPEECH_LANG_MAP = {
-  ko: "ko-KR",
-  en: "en-US",
-  zh: "zh-CN",
-  ja: "ja-JP",
-  vi: "vi-VN",
-};
+const KIOSK_SPEECH_LANG_MAP = { ko: "ko-KR", en: "en-US", zh: "zh-CN", ja: "ja-JP", vi: "vi-VN" };
 
-// 이모지/특수기호를 음성으로 읽기 전에 제거 ("우유잔" 같은 이상한 설명 발음 방지)
 const stripEmoji = (text) =>
   text
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
 
+// "{n}" 같은 자리표시자를 실제 값으로 채움
+const format = (template, vars) =>
+  (template || "").replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : ""));
+
 export default function App() {
+  const [translationsData, setTranslationsData] = useState(null);
+
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle");
@@ -104,7 +107,15 @@ export default function App() {
   const voiceGuideRef = useRef(true);
   const remoteConnectedRef = useRef(false);
 
-  const t = KIOSK_TRANSLATIONS[kioskLang] || KIOSK_TRANSLATIONS.ko;
+  // 서버에서 번역 데이터를 한 번 받아옴
+  useEffect(() => {
+    fetch(`${SERVER_URL}/translations/app`)
+      .then((res) => res.json())
+      .then((data) => setTranslationsData(data))
+      .catch(() => setTranslationsData(null));
+  }, []);
+
+  const t = translationsData ? translationsData[kioskLang] || translationsData.ko : null;
 
   useEffect(() => {
     kioskLangRef.current = kioskLang;
@@ -118,13 +129,10 @@ export default function App() {
     remoteConnectedRef.current = remoteConnected;
   }, [remoteConnected]);
 
-  const applyLanguage = (langId) => {
-    if (KIOSK_TRANSLATIONS[langId]) setKioskLang(langId);
-  };
+  const applyLanguage = (langId) => setKioskLang(langId);
   const applyLargeText = (isOn) => setLargeText(isOn);
   const applyHighContrast = (isOn) => setHighContrast(isOn);
 
-  // 키오스크 상태를 전부 기본값(한국어, 작은글자, 저대비, 음성안내 켜짐)으로 되돌림
   const resetKioskDefaults = () => {
     setKioskLang("ko");
     setLargeText(false);
@@ -138,11 +146,7 @@ export default function App() {
     if (!cleanMessage) return;
 
     if (remoteConnectedRef.current) {
-      socket.emit("kiosk-activity", {
-        code: kioskCodeRef.current,
-        message: cleanMessage,
-        langId: kioskLangRef.current,
-      });
+      socket.emit("kiosk-activity", { code: kioskCodeRef.current, message: cleanMessage, langId: kioskLangRef.current });
       return;
     }
 
@@ -165,30 +169,22 @@ export default function App() {
       setKioskCode(code);
       setCodeCreatedAt(Date.now());
     };
-
     socket.on("kiosk-code-assigned", onCodeAssigned);
     requestNewCode();
-
-    return () => {
-      socket.off("kiosk-code-assigned", onCodeAssigned);
-    };
+    return () => socket.off("kiosk-code-assigned", onCodeAssigned);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const onRemoteJoined = () => setRemoteConnected(true);
-
-    // 리모컨이 스스로 나가거나 연결이 끊기면, 키오스크도 기본값으로 되돌림
     const onRemoteLeft = () => {
       setRemoteConnected(false);
       resetKioskDefaults();
     };
-
     const onKioskLeft = () => {
       setRemoteConnected(false);
       resetKioskDefaults();
     };
-
     const onLanguageChanged = ({ lang }) => applyLanguage(lang);
     const onFeatureToggled = ({ featureId, on }) => {
       if (featureId === "large-text") applyLargeText(on);
@@ -216,17 +212,13 @@ export default function App() {
       const elapsed = Date.now() - codeCreatedAt;
       const remaining = Math.max(0, Math.floor((CODE_TTL_MS - elapsed) / 1000));
       setRemainingSec(remaining);
-      if (remaining <= 0) {
-        requestNewCode();
-      }
+      if (remaining <= 0) requestNewCode();
     }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeCreatedAt]);
 
-  const handleRegenerateCode = () => {
-    requestNewCode();
-  };
+  const handleRegenerateCode = () => requestNewCode();
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
@@ -240,22 +232,18 @@ export default function App() {
     setDraftOptions(DEFAULT_OPTIONS);
   };
 
-  const closeOptions = () => {
-    setOptionsFor(null);
-  };
+  const closeOptions = () => setOptionsFor(null);
 
   const confirmAddToCart = () => {
     if (!optionsFor) return;
     const item = optionsFor;
     const options = draftOptions;
-    const cartId = `${item.id}|${options.size}|${options.whip}|${options.topping}`;
+    const cartId = `${item.id}|${options.size}|${options.whip}|${options.topping}|${options.hotIce}`;
     const unitPrice = computeUnitPrice(item, options);
 
     setCart((prev) => {
       const existing = prev.find((c) => c.cartId === cartId);
-      if (existing) {
-        return prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
-      }
+      if (existing) return prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
       return [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
     });
 
@@ -299,18 +287,15 @@ export default function App() {
       saveOrderCounter(orderCounterRef.current);
       setOrderNumber(num);
       setPaymentStatus("done");
-      notify(`${t.doneLabel} ${t.orderNumberLabel(num)}`);
+      notify(`${t.doneLabel} ${format(t.orderNumberLabel, { n: num })}`);
 
       setTimeout(() => {
         setCart([]);
         setPaymentStatus("idle");
         setOrderNumber(null);
-
-        // 결제 끝나면 리모컨 연결 끊고, 키오스크 상태도 전부 기본값으로 리셋
         socket.emit("kiosk-reset", kioskCodeRef.current);
         resetKioskDefaults();
         setRemoteConnected(false);
-
         handleRegenerateCode();
       }, 3000);
     }, 1500);
@@ -324,7 +309,18 @@ export default function App() {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  if (!t) {
+    return (
+      <div className="kiosk">
+        <div className="kiosk-card">
+          <p className="subtitle">불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   const isWhipAvailable = optionsFor ? WHIP_AVAILABLE_IDS.includes(optionsFor.id) : false;
+  const isHotIceAvailable = optionsFor ? !FIXED_ICE_IDS.includes(optionsFor.id) : false;
 
   return (
     <div className={`kiosk ${largeText ? "large" : ""} ${highContrast ? "high-contrast" : ""}`}>
@@ -346,9 +342,7 @@ export default function App() {
             <p className={`code-timer ${remainingSec <= 30 ? "warning" : ""}`}>
               ⏱️ {formatTime(remainingSec)} {t.expireSuffix}
             </p>
-            <button className="refresh-btn" onClick={handleRegenerateCode}>
-              {t.refreshBtn}
-            </button>
+            <button className="refresh-btn" onClick={handleRegenerateCode}>{t.refreshBtn}</button>
           </div>
         </div>
 
@@ -356,11 +350,7 @@ export default function App() {
           <div className="menu-section">
             <div className="tabs">
               {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  className={`tab ${activeCategory === cat ? "active" : ""}`}
-                  onClick={() => handleCategoryClick(cat)}
-                >
+                <button key={cat} className={`tab ${activeCategory === cat ? "active" : ""}`} onClick={() => handleCategoryClick(cat)}>
                   {t.categories[cat]}
                 </button>
               ))}
@@ -380,11 +370,7 @@ export default function App() {
           <div className="cart-panel">
             <div className="cart-header">
               <h2>{t.cartTitle} {totalCount > 0 && <span className="cart-badge">{totalCount}</span>}</h2>
-              {cart.length > 0 && (
-                <button className="clear-btn" onClick={clearCart}>
-                  {t.clearBtn}
-                </button>
-              )}
+              {cart.length > 0 && <button className="clear-btn" onClick={clearCart}>{t.clearBtn}</button>}
             </div>
 
             {cart.length === 0 ? (
@@ -392,13 +378,12 @@ export default function App() {
             ) : (
               <div className="cart-list">
                 {cart.map((c) => {
-                  const summary = buildOptionSummary(t, c.options);
+                  const menuItem = MENU.find((m) => m.id === c.id);
+                  const summary = buildOptionSummary(t, c.options, menuItem);
                   return (
                     <div key={c.cartId} className="cart-item">
                       <div className="cart-item-info">
-                        <span className="cart-item-icon">
-                          {MENU.find((m) => m.id === c.id)?.icon}
-                        </span>
+                        <span className="cart-item-icon">{menuItem?.icon}</span>
                         <div>
                           <p className="cart-item-name">{t.menu[c.id]}</p>
                           {summary && <p className="cart-item-options">{summary}</p>}
@@ -411,9 +396,7 @@ export default function App() {
                           <span>{c.qty}</span>
                           <button onClick={() => changeQty(c.cartId, 1)}>+</button>
                         </div>
-                        <button className="remove-btn" onClick={() => removeItem(c.cartId)}>
-                          ✕
-                        </button>
+                        <button className="remove-btn" onClick={() => removeItem(c.cartId)}>✕</button>
                       </div>
                     </div>
                   );
@@ -423,7 +406,7 @@ export default function App() {
 
             <div className="cart-footer">
               <div className="total-row">
-                <span>{t.totalCountLabel(totalCount)}</span>
+                <span>{format(t.totalCountLabel, { n: totalCount })}</span>
                 <span className="total-price">{totalPrice.toLocaleString()}원</span>
               </div>
               <button className="checkout-btn" onClick={handleCheckoutClick} disabled={cart.length === 0}>
@@ -437,32 +420,44 @@ export default function App() {
       {optionsFor && (
         <div className="payment-overlay" onClick={closeOptions}>
           <div className="options-box" onClick={(e) => e.stopPropagation()}>
-            <button className="options-close-btn" onClick={closeOptions} aria-label={t.closeBtn}>
-              ✕
-            </button>
+            <button className="options-close-btn" onClick={closeOptions} aria-label={t.closeBtn}>✕</button>
             <div className="options-header">
               <span className="options-icon">{optionsFor.icon}</span>
               <h3>{t.menu[optionsFor.id]}</h3>
             </div>
+
+            {isHotIceAvailable && (
+              <div className="options-group">
+                <p className="options-group-label">{t.hotIceLabel}</p>
+                <div className="options-choice-row">
+                  <button
+                    className={`option-choice ${draftOptions.hotIce === "hot" ? "selected" : ""}`}
+                    onClick={() => { setDraftOptions((prev) => ({ ...prev, hotIce: "hot" })); notify(t.hotOption); }}
+                  >
+                    {t.hotOption}
+                  </button>
+                  <button
+                    className={`option-choice ${draftOptions.hotIce === "ice" ? "selected" : ""}`}
+                    onClick={() => { setDraftOptions((prev) => ({ ...prev, hotIce: "ice" })); notify(t.iceOption); }}
+                  >
+                    {t.iceOption}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="options-group">
               <p className="options-group-label">{t.sizeLabel}</p>
               <div className="options-choice-row">
                 <button
                   className={`option-choice ${draftOptions.size === "regular" ? "selected" : ""}`}
-                  onClick={() => {
-                    setDraftOptions((prev) => ({ ...prev, size: "regular" }));
-                    notify(t.sizeRegular);
-                  }}
+                  onClick={() => { setDraftOptions((prev) => ({ ...prev, size: "regular" })); notify(t.sizeRegular); }}
                 >
                   {t.sizeRegular}
                 </button>
                 <button
                   className={`option-choice ${draftOptions.size === "large" ? "selected" : ""}`}
-                  onClick={() => {
-                    setDraftOptions((prev) => ({ ...prev, size: "large" }));
-                    notify(t.sizeLarge.replace(/\s*\(.*\)/, ""));
-                  }}
+                  onClick={() => { setDraftOptions((prev) => ({ ...prev, size: "large" })); notify(t.sizeLarge.replace(/\s*\(.*\)/, "")); }}
                 >
                   {t.sizeLarge}
                 </button>
@@ -474,19 +469,13 @@ export default function App() {
               <div className="options-choice-row">
                 <button
                   className={`option-choice ${draftOptions.topping === "none" ? "selected" : ""}`}
-                  onClick={() => {
-                    setDraftOptions((prev) => ({ ...prev, topping: "none" }));
-                    notify(t.toppingNone);
-                  }}
+                  onClick={() => { setDraftOptions((prev) => ({ ...prev, topping: "none" })); notify(t.toppingNone); }}
                 >
                   {t.toppingNone}
                 </button>
                 <button
                   className={`option-choice ${draftOptions.topping === "pearl" ? "selected" : ""}`}
-                  onClick={() => {
-                    setDraftOptions((prev) => ({ ...prev, topping: "pearl" }));
-                    notify(t.toppingPearl.replace(/\s*\(.*\)/, ""));
-                  }}
+                  onClick={() => { setDraftOptions((prev) => ({ ...prev, topping: "pearl" })); notify(t.toppingPearl.replace(/\s*\(.*\)/, "")); }}
                 >
                   {t.toppingPearl}
                 </button>
@@ -499,19 +488,13 @@ export default function App() {
                 <div className="options-choice-row">
                   <button
                     className={`option-choice ${draftOptions.whip === "none" ? "selected" : ""}`}
-                    onClick={() => {
-                      setDraftOptions((prev) => ({ ...prev, whip: "none" }));
-                      notify(t.whipNone);
-                    }}
+                    onClick={() => { setDraftOptions((prev) => ({ ...prev, whip: "none" })); notify(t.whipNone); }}
                   >
                     {t.whipNone}
                   </button>
                   <button
                     className={`option-choice ${draftOptions.whip === "add" ? "selected" : ""}`}
-                    onClick={() => {
-                      setDraftOptions((prev) => ({ ...prev, whip: "add" }));
-                      notify(t.whipAdd.replace(/\s*\(.*\)/, ""));
-                    }}
+                    onClick={() => { setDraftOptions((prev) => ({ ...prev, whip: "add" })); notify(t.whipAdd.replace(/\s*\(.*\)/, "")); }}
                   >
                     {t.whipAdd}
                   </button>
@@ -523,9 +506,7 @@ export default function App() {
               <span>{computeUnitPrice(optionsFor, draftOptions).toLocaleString()}원</span>
             </div>
 
-            <button className="checkout-btn" onClick={confirmAddToCart}>
-              {t.addToCartBtn}
-            </button>
+            <button className="checkout-btn" onClick={confirmAddToCart}>{t.addToCartBtn}</button>
           </div>
         </div>
       )}
@@ -535,24 +516,8 @@ export default function App() {
           <div className="dine-type-box">
             <h3>{t.dineTypeTitle}</h3>
             <div className="dine-type-choices">
-              <button
-                className="dine-type-btn"
-                onClick={() => {
-                  notify(t.dineIn);
-                  startPayment();
-                }}
-              >
-                🍽️ {t.dineIn}
-              </button>
-              <button
-                className="dine-type-btn"
-                onClick={() => {
-                  notify(t.takeout);
-                  startPayment();
-                }}
-              >
-                🥤 {t.takeout}
-              </button>
+              <button className="dine-type-btn" onClick={() => { notify(t.dineIn); startPayment(); }}>🍽️ {t.dineIn}</button>
+              <button className="dine-type-btn" onClick={() => { notify(t.takeout); startPayment(); }}>🥤 {t.takeout}</button>
             </div>
           </div>
         </div>
@@ -572,7 +537,7 @@ export default function App() {
           <div className="payment-box success">
             <span className="check-icon">✅</span>
             <p className="success-title">{t.doneLabel}</p>
-            <p className="order-number">{t.orderNumberLabel(orderNumber)}</p>
+            <p className="order-number">{format(t.orderNumberLabel, { n: orderNumber })}</p>
           </div>
         </div>
       )}
