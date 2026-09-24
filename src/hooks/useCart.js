@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { computeUnitPrice } from "../data/menu";
 
 const ORDER_COUNTER_KEY = "kiosk-order-counter";
@@ -20,12 +20,27 @@ const saveOrderCounter = (value) => {
   }
 };
 
-export function useCart({ t, notify, finishAndResetKiosk }) {
+export function useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary }) {
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle");
   const [orderNumber, setOrderNumber] = useState(null);
 
   const orderCounterRef = useRef(loadOrderCounter());
+
+  // 장바구니가 바뀔 때마다 리모컨에게 요약을 보내줌
+  useEffect(() => {
+    if (!broadcastCartSummary || !t) return;
+    if (cart.length === 0) {
+      broadcastCartSummary("");
+      return;
+    }
+    const summary = cart
+      .map((c) => `${t.menu?.[c.id] || c.id} x${c.qty}`)
+      .join(", ");
+    const total = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
+    broadcastCartSummary(`${summary} · ${total.toLocaleString()}원`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, t]);
 
   const addItemToCart = (item, options) => {
     const cartId = `${item.id}|${options.size}|${options.whip}|${options.topping}|${options.hotIce}`;
