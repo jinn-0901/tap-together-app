@@ -1,224 +1,62 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
-import { io } from "socket.io-client";
-
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
-const socket = io(SERVER_URL);
-
-const CATEGORIES = ["coffee", "latte", "tea", "ade"];
-
-const MENU = [
-  { id: "americano", price: 3000, category: "coffee", icon: "☕" },
-  { id: "cafe-latte", price: 3500, category: "latte", icon: "🥛" },
-  { id: "strawberry-latte", price: 4500, category: "latte", icon: "🍓" },
-  { id: "choco-latte", price: 4500, category: "latte", icon: "🍫" },
-  { id: "green-tea", price: 3500, category: "tea", icon: "🍵" },
-  { id: "yuja-tea", price: 4000, category: "tea", icon: "🍊" },
-  { id: "iced-tea", price: 3500, category: "tea", icon: "🧊" },
-  { id: "lemonade", price: 4000, category: "ade", icon: "🍋" },
-];
-
-const WHIP_AVAILABLE_IDS = ["cafe-latte", "strawberry-latte", "choco-latte"];
-// 이미 차갑게만 나가는 메뉴는 핫/아이스 선택 자체가 안 뜨게 함
-const FIXED_ICE_IDS = ["iced-tea", "lemonade"];
-
-const ADDON_PRICE = { sizeLarge: 500, whip: 500, toppingPearl: 500 };
+import { CATEGORIES, MENU, WHIP_AVAILABLE_IDS, FIXED_ICE_IDS, DEFAULT_OPTIONS, getQrImageUrl, computeUnitPrice, buildOptionSummary, format } from "./data/menu";
+import { useKioskConnection, socket } from "./hooks/useKioskConnection";
+import { useCart } from "./hooks/useCart";
 
 const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
-const ORDER_COUNTER_KEY = "kiosk-order-counter";
-const CODE_TTL_MS = 10 * 60 * 1000;
-
-const getQrImageUrl = (value) =>
-  `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(value)}`;
-
-const computeUnitPrice = (item, options) =>
-  item.price +
-  (options.size === "large" ? ADDON_PRICE.sizeLarge : 0) +
-  (options.whip === "add" ? ADDON_PRICE.whip : 0) +
-  (options.topping === "pearl" ? ADDON_PRICE.toppingPearl : 0);
-
-const buildOptionSummary = (t, options, item) => {
-  const parts = [];
-  if (!FIXED_ICE_IDS.includes(item.id)) {
-    parts.push(options.hotIce === "hot" ? t.hotOption : t.iceOption);
-  }
-  if (options.size === "large") parts.push(t.sizeLarge.replace(/\s*\(.*\)/, ""));
-  if (options.whip === "add") parts.push(t.whipAdd.replace(/\s*\(.*\)/, ""));
-  if (options.topping === "pearl") parts.push(t.toppingPearl.replace(/\s*\(.*\)/, ""));
-  return parts.join(" · ");
-};
-
-const DEFAULT_OPTIONS = { size: "regular", whip: "none", topping: "none", hotIce: "hot" };
-
-const loadOrderCounter = () => {
-  try {
-    const saved = localStorage.getItem(ORDER_COUNTER_KEY);
-    return saved ? parseInt(saved, 10) : 1;
-  } catch (err) {
-    return 1;
-  }
-};
-
-const saveOrderCounter = (value) => {
-  try {
-    localStorage.setItem(ORDER_COUNTER_KEY, String(value));
-  } catch (err) {
-    // 조용히 무시
-  }
-};
-
-const KIOSK_SPEECH_LANG_MAP = { ko: "ko-KR", en: "en-US", zh: "zh-CN", ja: "ja-JP", vi: "vi-VN" };
-
-const stripEmoji = (text) =>
-  text
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-// "{n}" 같은 자리표시자를 실제 값으로 채움
-const format = (template, vars) =>
-  (template || "").replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : ""));
 
 export default function App() {
-  const [translationsData, setTranslationsData] = useState(null);
+  const {
+    t,
+    largeText,
+    highContrast,
+    kioskCode,
+    remainingSec,
+    notify,
+    handleRegenerateCode,
+    finishAndResetKiosk,
+  } = useKioskConnection();
+
+  const {
+    cart,
+    paymentStatus,
+    orderNumber,
+    addItemToCart,
+    changeQty,
+    removeItem,
+    clearCart,
+    totalPrice,
+    totalCount,
+    handleCheckoutClick,
+    startPayment,
+  } = useCart({ t, notify, finishAndResetKiosk });
 
   const [activeCategory, setActiveCategory] = useState("coffee");
-  const [cart, setCart] = useState([]);
-  const [paymentStatus, setPaymentStatus] = useState("idle");
-  const [orderNumber, setOrderNumber] = useState(null);
-
-  const [kioskCode, setKioskCode] = useState(null);
-  const [codeCreatedAt, setCodeCreatedAt] = useState(Date.now());
-  const [remainingSec, setRemainingSec] = useState(CODE_TTL_MS / 1000);
-
-  const [kioskLang, setKioskLang] = useState("ko");
-  const [largeText, setLargeText] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
-
-  const [voiceGuideOn, setVoiceGuideOn] = useState(true);
-  const [remoteConnected, setRemoteConnected] = useState(false);
-
   const [optionsFor, setOptionsFor] = useState(null);
   const [draftOptions, setDraftOptions] = useState(DEFAULT_OPTIONS);
 
-  const orderCounterRef = useRef(loadOrderCounter());
-  const kioskCodeRef = useRef(null);
-  const kioskLangRef = useRef("ko");
-  const voiceGuideRef = useRef(true);
-  const remoteConnectedRef = useRef(false);
-
-  // 서버에서 번역 데이터를 한 번 받아옴
   useEffect(() => {
-    fetch(`${SERVER_URL}/translations/app`)
-      .then((res) => res.json())
-      .then((data) => setTranslationsData(data))
-      .catch(() => setTranslationsData(null));
-  }, []);
+    const onVoiceOrderReceived = ({ itemId, options, wantsToBuy }) => {
+      const item = MENU.find((m) => m.id === itemId);
+      if (!item || !t) return;
 
-  const t = translationsData ? translationsData[kioskLang] || translationsData.ko : null;
+      const finalOptions = FIXED_ICE_IDS.includes(item.id) ? { ...options, hotIce: "hot" } : options;
+      setActiveCategory(item.category);
 
-  useEffect(() => {
-    kioskLangRef.current = kioskLang;
-  }, [kioskLang]);
-
-  useEffect(() => {
-    voiceGuideRef.current = voiceGuideOn;
-  }, [voiceGuideOn]);
-
-  useEffect(() => {
-    remoteConnectedRef.current = remoteConnected;
-  }, [remoteConnected]);
-
-  const applyLanguage = (langId) => setKioskLang(langId);
-  const applyLargeText = (isOn) => setLargeText(isOn);
-  const applyHighContrast = (isOn) => setHighContrast(isOn);
-
-  const resetKioskDefaults = () => {
-    setKioskLang("ko");
-    setLargeText(false);
-    setHighContrast(false);
-    setVoiceGuideOn(true);
-  };
-
-  const notify = (message) => {
-    if (!voiceGuideRef.current) return;
-    const cleanMessage = stripEmoji(message);
-    if (!cleanMessage) return;
-
-    if (remoteConnectedRef.current) {
-      socket.emit("kiosk-activity", { code: kioskCodeRef.current, message: cleanMessage, langId: kioskLangRef.current });
-      return;
-    }
-
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(cleanMessage);
-      utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
-      window.speechSynthesis.speak(utterance);
-    }, 50);
-  };
-
-  const requestNewCode = () => {
-    socket.emit("request-kiosk-code", kioskCodeRef.current);
-  };
-
-  useEffect(() => {
-    const onCodeAssigned = ({ code }) => {
-      kioskCodeRef.current = code;
-      setKioskCode(code);
-      setCodeCreatedAt(Date.now());
+      if (wantsToBuy) {
+        addItemToCart(item, finalOptions);
+      } else {
+        setOptionsFor(item);
+        setDraftOptions(finalOptions);
+        notify(t.menu[item.id]);
+      }
     };
-    socket.on("kiosk-code-assigned", onCodeAssigned);
-    requestNewCode();
-    return () => socket.off("kiosk-code-assigned", onCodeAssigned);
+
+    socket.on("voice-order-received", onVoiceOrderReceived);
+    return () => socket.off("voice-order-received", onVoiceOrderReceived);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const onRemoteJoined = () => setRemoteConnected(true);
-    const onRemoteLeft = () => {
-      setRemoteConnected(false);
-      resetKioskDefaults();
-    };
-    const onKioskLeft = () => {
-      setRemoteConnected(false);
-      resetKioskDefaults();
-    };
-    const onLanguageChanged = ({ lang }) => applyLanguage(lang);
-    const onFeatureToggled = ({ featureId, on }) => {
-      if (featureId === "large-text") applyLargeText(on);
-      if (featureId === "high-contrast") applyHighContrast(on);
-      if (featureId === "voice-guide") setVoiceGuideOn(on);
-    };
-
-    socket.on("remote-joined", onRemoteJoined);
-    socket.on("remote-left", onRemoteLeft);
-    socket.on("kiosk-left", onKioskLeft);
-    socket.on("language-changed", onLanguageChanged);
-    socket.on("feature-toggled", onFeatureToggled);
-
-    return () => {
-      socket.off("remote-joined", onRemoteJoined);
-      socket.off("remote-left", onRemoteLeft);
-      socket.off("kiosk-left", onKioskLeft);
-      socket.off("language-changed", onLanguageChanged);
-      socket.off("feature-toggled", onFeatureToggled);
-    };
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - codeCreatedAt;
-      const remaining = Math.max(0, Math.floor((CODE_TTL_MS - elapsed) / 1000));
-      setRemainingSec(remaining);
-      if (remaining <= 0) requestNewCode();
-    }, 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [codeCreatedAt]);
-
-  const handleRegenerateCode = () => requestNewCode();
+  }, [t]);
 
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
@@ -236,69 +74,8 @@ export default function App() {
 
   const confirmAddToCart = () => {
     if (!optionsFor) return;
-    const item = optionsFor;
-    const options = draftOptions;
-    const cartId = `${item.id}|${options.size}|${options.whip}|${options.topping}|${options.hotIce}`;
-    const unitPrice = computeUnitPrice(item, options);
-
-    setCart((prev) => {
-      const existing = prev.find((c) => c.cartId === cartId);
-      if (existing) return prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
-      return [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
-    });
-
-    notify(`${t.menu[item.id]} ${t.addToCartBtn}`);
+    addItemToCart(optionsFor, draftOptions);
     closeOptions();
-  };
-
-  const changeQty = (cartId, delta) => {
-    setCart((prev) =>
-      prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + delta } : c)).filter((c) => c.qty > 0)
-    );
-  };
-
-  const removeItem = (cartId) => {
-    const removed = cart.find((c) => c.cartId === cartId);
-    setCart((prev) => prev.filter((c) => c.cartId !== cartId));
-    if (removed) notify(t.menu[removed.id]);
-  };
-
-  const clearCart = () => {
-    setCart([]);
-    notify(t.clearBtn);
-  };
-
-  const totalPrice = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
-  const totalCount = cart.reduce((sum, c) => sum + c.qty, 0);
-
-  const handleCheckoutClick = () => {
-    if (cart.length === 0) return;
-    setPaymentStatus("choosing-dine-type");
-    notify(t.dineTypeTitle);
-  };
-
-  const startPayment = () => {
-    setPaymentStatus("processing");
-    notify(t.processingLabel);
-
-    setTimeout(() => {
-      const num = orderCounterRef.current;
-      orderCounterRef.current += 1;
-      saveOrderCounter(orderCounterRef.current);
-      setOrderNumber(num);
-      setPaymentStatus("done");
-      notify(`${t.doneLabel} ${format(t.orderNumberLabel, { n: num })}`);
-
-      setTimeout(() => {
-        setCart([]);
-        setPaymentStatus("idle");
-        setOrderNumber(null);
-        socket.emit("kiosk-reset", kioskCodeRef.current);
-        resetKioskDefaults();
-        setRemoteConnected(false);
-        handleRegenerateCode();
-      }, 3000);
-    }, 1500);
   };
 
   const qrValue = kioskCode ? `${REMOTE_SITE_URL}/${kioskCode}` : "";
