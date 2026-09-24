@@ -90,9 +90,22 @@ export function useKioskConnection() {
       setKioskCode(code);
       setCodeCreatedAt(Date.now());
     };
+
+    // 재연결 후 서버가 이전 상태를 복구 못 했으면(=socket.recovered가 false), 새 코드를 다시 요청
+    const onConnect = () => {
+      if (kioskCodeRef.current && !socket.recovered) {
+        requestNewCode();
+      }
+    };
+
     socket.on("kiosk-code-assigned", onCodeAssigned);
+    socket.on("connect", onConnect);
     requestNewCode();
-    return () => socket.off("kiosk-code-assigned", onCodeAssigned);
+
+    return () => {
+      socket.off("kiosk-code-assigned", onCodeAssigned);
+      socket.off("connect", onConnect);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
