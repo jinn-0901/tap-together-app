@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 
 const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
-export const socket = io(SERVER_URL);
+export const socket = io(SERVER_URL, {
+  transports: ["websocket", "polling"],
+});
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 
@@ -91,7 +93,6 @@ export function useKioskConnection() {
       setCodeCreatedAt(Date.now());
     };
 
-    // 재연결 후 서버가 이전 상태를 복구 못 했으면(=socket.recovered가 false), 새 코드를 다시 요청
     const onConnect = () => {
       if (kioskCodeRef.current && !socket.recovered) {
         requestNewCode();
@@ -107,6 +108,29 @@ export function useKioskConnection() {
       socket.off("connect", onConnect);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 10초마다 "내 코드가 서버에 아직 살아있는지" 직접 확인 — 유예 시간을 넘겨 코드가 사라진 경우를 빨리 감지
+  useEffect(() => {
+    const onCheckResult = ({ valid }) => {
+      if (!valid && kioskCodeRef.current) {
+        console.log("서버에 내 코드가 없음 → 새 코드 요청");
+        requestNewCode();
+      }
+    };
+
+    socket.on("kiosk-code-check-result", onCheckResult);
+
+    const interval = setInterval(() => {
+      if (kioskCodeRef.current) {
+        socket.emit("check-kiosk-code", kioskCodeRef.current);
+      }
+    }, 10000);
+
+    return () => {
+      socket.off("kiosk-code-check-result", onCheckResult);
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
