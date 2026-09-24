@@ -16,6 +16,7 @@ export default function App() {
     notify,
     handleRegenerateCode,
     finishAndResetKiosk,
+    broadcastCartSummary,
   } = useKioskConnection();
 
   const {
@@ -30,7 +31,7 @@ export default function App() {
     totalCount,
     handleCheckoutClick,
     startPayment,
-  } = useCart({ t, notify, finishAndResetKiosk });
+  } = useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary });
 
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [optionsFor, setOptionsFor] = useState(null);
