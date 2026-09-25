@@ -12,11 +12,11 @@ export default function App() {
     largeText,
     highContrast,
     kioskCode,
+    kioskCodeRef,
     remainingSec,
     notify,
     handleRegenerateCode,
     finishAndResetKiosk,
-    broadcastCartSummary,
   } = useKioskConnection();
 
   const {
@@ -32,7 +32,7 @@ export default function App() {
     handleCheckoutClick,
     startPayment,
     completeRemotePayment,
-  } = useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary });
+  } = useCart({ t, notify, finishAndResetKiosk, kioskCodeRef });
 
   const [activeCategory, setActiveCategory] = useState("coffee");
   const [optionsFor, setOptionsFor] = useState(null);
@@ -60,7 +60,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
-  // 리모컨이 먹고가기/포장까지 정해서 결제를 요청하면, 선택 단계 없이 바로 완료 처리
   useEffect(() => {
     const onCheckoutRequested = () => {
       completeRemotePayment();
