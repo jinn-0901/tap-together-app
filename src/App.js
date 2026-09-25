@@ -5,6 +5,7 @@ import { useKioskConnection, socket } from "./hooks/useKioskConnection";
 import { useCart } from "./hooks/useCart";
 
 const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
+const FALLBACK_LOADING_TEXT = "Loading...";
 
 export default function App() {
   const {
@@ -101,7 +102,7 @@ export default function App() {
     return (
       <div className="kiosk">
         <div className="kiosk-card">
-          <p className="subtitle">불러오는 중...</p>
+          <p className="subtitle">{FALLBACK_LOADING_TEXT}</p>
         </div>
       </div>
     );
