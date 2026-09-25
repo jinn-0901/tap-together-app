@@ -27,7 +27,6 @@ export function useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary }
 
   const orderCounterRef = useRef(loadOrderCounter());
 
-  // 장바구니가 바뀔 때마다 리모컨에게 요약을 보내줌
   useEffect(() => {
     if (!broadcastCartSummary || !t) return;
     if (cart.length === 0) {
@@ -102,6 +101,25 @@ export function useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary }
     }, 1500);
   };
 
+  // 리모컨이 먹고가기/포장까지 이미 정해서 보냈을 때 — 선택/처리중 단계 없이 바로 완료 처리
+  const completeRemotePayment = () => {
+    if (cart.length === 0) return;
+
+    const num = orderCounterRef.current;
+    orderCounterRef.current += 1;
+    saveOrderCounter(orderCounterRef.current);
+    setOrderNumber(num);
+    setPaymentStatus("done");
+    notify(`${t.doneLabel} ${t.orderNumberLabel.replace("{n}", num)}`);
+
+    setTimeout(() => {
+      setCart([]);
+      setPaymentStatus("idle");
+      setOrderNumber(null);
+      finishAndResetKiosk();
+    }, 3000);
+  };
+
   return {
     cart,
     paymentStatus,
@@ -114,5 +132,6 @@ export function useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary }
     totalCount,
     handleCheckoutClick,
     startPayment,
+    completeRemotePayment,
   };
 }
