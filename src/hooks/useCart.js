@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { computeUnitPrice } from "../data/menu";
+import { socket } from "./useKioskConnection";
 
 const ORDER_COUNTER_KEY = "kiosk-order-counter";
 
@@ -20,26 +21,24 @@ const saveOrderCounter = (value) => {
   }
 };
 
-export function useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary }) {
+export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle");
   const [orderNumber, setOrderNumber] = useState(null);
 
   const orderCounterRef = useRef(loadOrderCounter());
+  const cartRef = useRef([]);
 
   useEffect(() => {
-    if (!broadcastCartSummary || !t) return;
-    if (cart.length === 0) {
-      broadcastCartSummary("");
-      return;
-    }
-    const summary = cart
-      .map((c) => `${t.menu?.[c.id] || c.id} x${c.qty}`)
-      .join(", ");
-    const total = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
-    broadcastCartSummary(`${summary} · ${total.toLocaleString()}원`);
+    cartRef.current = cart;
+  }, [cart]);
+
+  // 장바구니가 바뀔 때마다 배열 전체를 리모컨(들)에게 전달
+  useEffect(() => {
+    if (!kioskCodeRef?.current) return;
+    socket.emit("cart-state-updated", { code: kioskCodeRef.current, cart });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, t]);
+  }, [cart]);
 
   const addItemToCart = (item, options) => {
     const cartId = `${item.id}|${options.size}|${options.whip}|${options.topping}|${options.hotIce}`;
@@ -71,6 +70,30 @@ export function useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary }
     notify(t.clearBtn);
   };
 
+  // 리모컨에서 온 수량조절/삭제/비우기 요청을 처리
+  useEffect(() => {
+    const onQtyRequested = ({ cartId, delta }) => changeQty(cartId, delta);
+    const onRemoveRequested = ({ cartId }) => removeItem(cartId);
+    const onClearRequested = () => clearCart();
+    const onRequestCartStateForNewRemote = () => {
+      if (!kioskCodeRef?.current) return;
+      socket.emit("cart-state-updated", { code: kioskCodeRef.current, cart: cartRef.current });
+    };
+
+    socket.on("cart-change-qty-requested", onQtyRequested);
+    socket.on("cart-remove-item-requested", onRemoveRequested);
+    socket.on("cart-clear-requested", onClearRequested);
+    socket.on("request-cart-state-for-new-remote", onRequestCartStateForNewRemote);
+
+    return () => {
+      socket.off("cart-change-qty-requested", onQtyRequested);
+      socket.off("cart-remove-item-requested", onRemoveRequested);
+      socket.off("cart-clear-requested", onClearRequested);
+      socket.off("request-cart-state-for-new-remote", onRequestCartStateForNewRemote);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, t]);
+
   const totalPrice = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
   const totalCount = cart.reduce((sum, c) => sum + c.qty, 0);
 
@@ -101,7 +124,6 @@ export function useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary }
     }, 1500);
   };
 
-  // 리모컨이 먹고가기/포장까지 이미 정해서 보냈을 때 — 선택/처리중 단계 없이 바로 완료 처리
   const completeRemotePayment = () => {
     if (cart.length === 0) return;
 
