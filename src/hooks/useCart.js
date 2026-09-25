@@ -34,9 +34,16 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
   }, [cart]);
 
   // 장바구니가 바뀔 때마다 배열 전체를 리모컨(들)에게 전달
+  const broadcastCart = (nextCart) => {
+    if (!kioskCodeRef?.current) {
+      console.warn("kioskCodeRef가 없어서 장바구니를 리모컨에 전송하지 못했어요");
+      return;
+    }
+    socket.emit("cart-state-updated", { code: kioskCodeRef.current, cart: nextCart });
+  };
+
   useEffect(() => {
-    if (!kioskCodeRef?.current) return;
-    socket.emit("cart-state-updated", { code: kioskCodeRef.current, cart });
+    broadcastCart(cart);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
 
@@ -46,8 +53,10 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
 
     setCart((prev) => {
       const existing = prev.find((c) => c.cartId === cartId);
-      if (existing) return prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
-      return [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
+      const next = existing
+        ? prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c))
+        : [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
+      return next;
     });
 
     notify(`${t.menu[item.id]} ${t.addToCartBtn}`);
@@ -76,8 +85,7 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
     const onRemoveRequested = ({ cartId }) => removeItem(cartId);
     const onClearRequested = () => clearCart();
     const onRequestCartStateForNewRemote = () => {
-      if (!kioskCodeRef?.current) return;
-      socket.emit("cart-state-updated", { code: kioskCodeRef.current, cart: cartRef.current });
+      broadcastCart(cartRef.current);
     };
 
     socket.on("cart-change-qty-requested", onQtyRequested);
