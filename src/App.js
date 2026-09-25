@@ -59,6 +59,16 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
+  // 리모컨이 "결제하기"를 누르면 키오스크가 자기 결제 흐름을 그대로 시작함
+  useEffect(() => {
+    const onCheckoutRequested = () => {
+      handleCheckoutClick();
+    };
+    socket.on("checkout-requested-by-remote", onCheckoutRequested);
+    return () => socket.off("checkout-requested-by-remote", onCheckoutRequested);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart]);
+
   const filteredMenu = MENU.filter((item) => item.category === activeCategory);
 
   const handleCategoryClick = (cat) => {
