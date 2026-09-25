@@ -31,6 +31,7 @@ export default function App() {
     totalCount,
     handleCheckoutClick,
     startPayment,
+    completeRemotePayment,
   } = useCart({ t, notify, finishAndResetKiosk, broadcastCartSummary });
 
   const [activeCategory, setActiveCategory] = useState("coffee");
@@ -59,10 +60,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
-  // 리모컨이 "결제하기"를 누르면 키오스크가 자기 결제 흐름을 그대로 시작함
+  // 리모컨이 먹고가기/포장까지 정해서 결제를 요청하면, 선택 단계 없이 바로 완료 처리
   useEffect(() => {
     const onCheckoutRequested = () => {
-      handleCheckoutClick();
+      completeRemotePayment();
     };
     socket.on("checkout-requested-by-remote", onCheckoutRequested);
     return () => socket.off("checkout-requested-by-remote", onCheckoutRequested);
