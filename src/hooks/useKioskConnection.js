@@ -97,6 +97,8 @@ export function useKioskConnection() {
     speakLocally(cleanMessage);
   };
 
+  const hasConnectedOnceRef = useRef(false);
+
   const requestNewCode = () => {
     socket.emit("request-kiosk-code", kioskCodeRef.current);
   };
@@ -108,11 +110,27 @@ export function useKioskConnection() {
       setCodeCreatedAt(Date.now());
     };
 
+    // 와이파이가 잠깐 끊겼다 소켓이 재연결되는 경우: 서버는 연결이 끊기는 순간
+    // 이미 이 키오스크의 이전 코드/연결된 리모컨들을 전부 정리해버림(재시도 로직 없이
+    // 즉시 초기화하는 지금 방식대로). 그래서 재연결 시 예전 코드는 이미 죽어있는데,
+    // 최대 10분(코드 만료 타이머)까지 화면엔 죽은 코드가 그대로 떠 있게 되는 문제가 있어서
+    // 재연결되는 즉시 새 코드를 다시 받아오게 함 (최초 연결 때는 건너뜀 — 아래서 한 번만 요청함)
+    const onConnect = () => {
+      if (hasConnectedOnceRef.current) {
+        // 서버는 이미 이전에 연결돼있던 리모컨들도 다 정리한 상태라 화면 상태도 같이 초기화
+        resetKioskDefaults();
+        requestNewCode();
+      }
+      hasConnectedOnceRef.current = true;
+    };
+
     socket.on("kiosk-code-assigned", onCodeAssigned);
+    socket.on("connect", onConnect);
     requestNewCode();
 
     return () => {
       socket.off("kiosk-code-assigned", onCodeAssigned);
+      socket.off("connect", onConnect);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
