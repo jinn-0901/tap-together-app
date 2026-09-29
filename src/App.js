@@ -16,6 +16,7 @@ export default function App() {
     kioskCode,
     kioskCodeRef,
     remainingSec,
+    liveMessage,
     notify,
     handleRegenerateCode,
     finishAndResetKiosk,
@@ -89,6 +90,16 @@ export default function App() {
 
   const closeOptions = () => setOptionsFor(null);
 
+  // 옵션 창이 열려있을 때 Esc로도 닫을 수 있게 (키보드/스크린리더 사용자를 위한 표준 동작)
+  useEffect(() => {
+    if (!optionsFor) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") closeOptions();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [optionsFor]);
+
   const confirmAddToCart = () => {
     if (!optionsFor) return;
     addItemToCart(optionsFor, draftOptions);
@@ -125,7 +136,7 @@ export default function App() {
         <div className="code-box">
           <div className="qr-wrap">
             {kioskCode ? (
-              <img src={getQrImageUrl(qrValue)} alt="QR" width={90} height={90} />
+              <img src={getQrImageUrl(qrValue)} alt={t.codeLabel} width={90} height={90} />
             ) : (
               <div style={{ width: 90, height: 90 }} />
             )}
@@ -134,7 +145,7 @@ export default function App() {
             <p className="code-label">{t.codeLabel}</p>
             <p className="code-number">{kioskCode || "------"}</p>
             <p className={`code-timer ${remainingSec <= 30 ? "warning" : ""}`}>
-              ⏱️ {formatTime(remainingSec)} {t.expireSuffix}
+              <span aria-hidden="true">⏱️</span> {formatTime(remainingSec)} {t.expireSuffix}
             </p>
             <button className="refresh-btn" onClick={handleRegenerateCode}>{t.refreshBtn}</button>
           </div>
@@ -144,7 +155,12 @@ export default function App() {
           <div className="menu-section">
             <div className="tabs">
               {CATEGORIES.map((cat) => (
-                <button key={cat} className={`tab ${activeCategory === cat ? "active" : ""}`} onClick={() => handleCategoryClick(cat)}>
+                <button
+                  key={cat}
+                  className={`tab ${activeCategory === cat ? "active" : ""}`}
+                  aria-pressed={activeCategory === cat}
+                  onClick={() => handleCategoryClick(cat)}
+                >
                   {t.categories[cat]}
                 </button>
               ))}
@@ -201,11 +217,11 @@ export default function App() {
                       </div>
                       <div className="cart-item-actions">
                         <div className="qty-controls">
-                          <button onClick={() => changeQty(c.cartId, -1)}>-</button>
+                          <button aria-label={t.qtyDecreaseLabel} onClick={() => changeQty(c.cartId, -1)}>-</button>
                           <span>{c.qty}</span>
-                          <button onClick={() => changeQty(c.cartId, 1)}>+</button>
+                          <button aria-label={t.qtyIncreaseLabel} onClick={() => changeQty(c.cartId, 1)}>+</button>
                         </div>
-                        <button className="remove-btn" onClick={() => removeItem(c.cartId)}>✕</button>
+                        <button className="remove-btn" aria-label={t.removeItemLabel} onClick={() => removeItem(c.cartId)}>✕</button>
                       </div>
                     </div>
                   );
@@ -228,7 +244,13 @@ export default function App() {
 
       {optionsFor && (
         <div className="payment-overlay" onClick={closeOptions}>
-          <div className="options-box" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="options-box"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.menu[optionsFor.id]}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button className="options-close-btn" onClick={closeOptions} aria-label={t.closeBtn}>✕</button>
             <div className="options-header">
               <span className="options-icon">{optionsFor.icon}</span>
@@ -322,7 +344,7 @@ export default function App() {
 
       {paymentStatus === "choosing-dine-type" && (
         <div className="payment-overlay">
-          <div className="dine-type-box">
+          <div className="dine-type-box" role="dialog" aria-modal="true" aria-label={t.dineTypeTitle}>
             <h3>{t.dineTypeTitle}</h3>
             <div className="dine-type-choices">
               <button className="dine-type-btn" onClick={() => { notify(t.dineIn); startPayment(); }}>🍽️ {t.dineIn}</button>
@@ -334,8 +356,8 @@ export default function App() {
 
       {paymentStatus === "processing" && (
         <div className="payment-overlay">
-          <div className="payment-box">
-            <div className="spinner" />
+          <div className="payment-box" role="alert" aria-live="assertive">
+            <div className="spinner" aria-hidden="true" />
             <p>{t.processingLabel}</p>
           </div>
         </div>
@@ -343,13 +365,16 @@ export default function App() {
 
       {paymentStatus === "done" && (
         <div className="payment-overlay">
-          <div className="payment-box success">
-            <span className="check-icon">✅</span>
+          <div className="payment-box success" role="alert" aria-live="assertive">
+            <span className="check-icon" aria-hidden="true">✅</span>
             <p className="success-title">{t.doneLabel}</p>
             <p className="order-number">{format(t.orderNumberLabel, { n: orderNumber })}</p>
           </div>
         </div>
       )}
+
+      {/* 화면엔 안 보이지만 스크린리더에게 방금 일어난 일(메뉴 선택, 옵션 변경 등)을 알려줌 */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{liveMessage}</div>
     </div>
   );
 }

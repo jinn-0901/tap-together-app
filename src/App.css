@@ -1,5 +1,33 @@
 * { box-sizing: border-box; }
 
+/* 화면엔 안 보이지만 스크린리더는 읽을 수 있는 영역 (aria-live 안내용) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 키보드로 탐색할 때 지금 어디에 있는지 잘 보이게 (마우스 클릭 시엔 안 보임) */
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid #ffb703;
+  outline-offset: 2px;
+}
+
+.kiosk.high-contrast button:focus-visible,
+.kiosk.high-contrast input:focus-visible,
+.kiosk.high-contrast a:focus-visible {
+  outline: 3px solid #ffd400;
+  outline-offset: 3px;
+}
+
 body {
   margin: 0;
   font-family: "Pretendard", "Apple SD Gothic Neo", sans-serif;

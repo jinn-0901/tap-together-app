@@ -31,6 +31,11 @@ export function useKioskConnection() {
   const [hasDirect, setHasDirect] = useState(false);
   const [hasShared, setHasShared] = useState(false);
 
+  // 화면에 보이지 않는 aria-live 영역에 띄울 문구. 음성 안내(TTS) 켜짐/꺼짐과 무관하게
+  // 항상 갱신해서, 스크린리더 사용자가 리모컨 쪽에서 일어난 변화(예: 원격으로 메뉴 선택됨)도
+  // 놓치지 않게 함
+  const [liveMessage, setLiveMessage] = useState("");
+
   const kioskCodeRef = useRef(null);
   const kioskLangRef = useRef("ko");
   const voiceGuideRef = useRef(true);
@@ -48,6 +53,8 @@ export function useKioskConnection() {
 
   useEffect(() => {
     kioskLangRef.current = kioskLang;
+    // 스크린리더가 올바른 언어 발음 규칙으로 화면을 읽도록 문서 언어도 같이 바꿈
+    document.documentElement.lang = KIOSK_SPEECH_LANG_MAP[kioskLang]?.split("-")[0] || kioskLang;
   }, [kioskLang]);
 
   useEffect(() => {
@@ -83,9 +90,13 @@ export function useKioskConnection() {
   };
 
   const notify = (message) => {
-    if (!voiceGuideRef.current) return;
     const cleanMessage = stripEmoji(message);
     if (!cleanMessage) return;
+
+    // 스크린리더용 안내는 TTS 켜짐 여부와 무관하게 항상 갱신
+    setLiveMessage(cleanMessage);
+
+    if (!voiceGuideRef.current) return;
 
     if (hasDirectRef.current) {
       // 직접 연결자가 있으면 그쪽에서만 소리나게 서버로 전달
@@ -137,7 +148,9 @@ export function useKioskConnection() {
 
   useEffect(() => {
     const onActivitySelf = ({ message }) => {
-      speakLocally(stripEmoji(message));
+      const cleanMessage = stripEmoji(message);
+      setLiveMessage(cleanMessage);
+      speakLocally(cleanMessage);
     };
 
     const onRosterChanged = ({ hasDirect: d, hasShared: s }) => {
@@ -215,6 +228,7 @@ export function useKioskConnection() {
     kioskCode,
     kioskCodeRef,
     remainingSec,
+    liveMessage,
     notify,
     handleRegenerateCode,
     finishAndResetKiosk,
