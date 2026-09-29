@@ -150,15 +150,17 @@ export default function App() {
               {filteredMenu.map((item) => (
                 <button key={item.id} className={`menu-item ${easyMode ? "easy" : ""}`} onClick={() => openOptions(item)}>
                   {easyMode ? (
-                    <img
-                      className="menu-photo"
-                      src={getMenuImageUrl(SERVER_URL, item.id)}
-                      alt={t.menu[item.id]}
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                        e.target.nextSibling.style.display = "block";
-                      }}
-                    />
+                    <span className="menu-photo-wrap">
+                      <img
+                        className="menu-photo"
+                        src={getMenuImageUrl(SERVER_URL, item.id)}
+                        alt={t.menu[item.id]}
+                        onError={(e) => {
+                          e.target.parentElement.style.display = "none";
+                          e.target.parentElement.nextSibling.style.display = "block";
+                        }}
+                      />
+                    </span>
                   ) : null}
                   <span className="menu-icon" style={easyMode ? { display: "none" } : undefined}>
                     {item.icon}

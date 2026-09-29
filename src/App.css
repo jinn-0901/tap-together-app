@@ -294,13 +294,22 @@ body {
 .menu-name { font-size: 15px; font-weight: 700; }
 .menu-price { font-size: 13px; color: #d6b98c; }
 
-/* 쉬운 화면 모드: 실제 메뉴 사진 */
-.menu-photo {
+/* 쉬운 화면 모드: 실제 메뉴 사진 — 원본 비율(세로/가로 사진 다 섞여있음)을 유지한 채
+   박스 안에 전체가 다 보이게(object-fit: contain) 해서 잘리지 않도록 함 */
+.menu-photo-wrap {
+  display: block;
   width: 100%;
   height: 96px;
-  object-fit: cover;
   border-radius: 12px;
   margin-bottom: 4px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.menu-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .menu-item.easy {
   padding-bottom: 14px;
@@ -308,7 +317,7 @@ body {
 .menu-item.easy .menu-name {
   font-size: 18px;
 }
-.kiosk.large .menu-photo { height: 150px; }
+.kiosk.large .menu-photo-wrap { height: 150px; }
 
 .payment-overlay {
   position: fixed;
