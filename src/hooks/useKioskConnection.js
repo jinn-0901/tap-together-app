@@ -74,12 +74,12 @@ export function useKioskConnection() {
 
   const speakLocally = (message) => {
     if (!window.speechSynthesis) return;
+    // 클릭 직후 바로 재생 — setTimeout으로 지연시키면 일부 모바일 브라우저가
+    // 사용자 제스처로 인정하지 않아 조용히 재생을 막을 수 있음
     window.speechSynthesis.cancel();
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
-      window.speechSynthesis.speak(utterance);
-    }, 50);
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = KIOSK_SPEECH_LANG_MAP[kioskLangRef.current] || "ko-KR";
+    window.speechSynthesis.speak(utterance);
   };
 
   const notify = (message) => {
