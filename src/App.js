@@ -81,6 +81,7 @@ export default function App() {
   const openOptions = (item) => {
     setOptionsFor(item);
     setDraftOptions(DEFAULT_OPTIONS);
+    notify(t.menu[item.id]);
   };
 
   const closeOptions = () => setOptionsFor(null);
