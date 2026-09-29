@@ -27,7 +27,6 @@ export function useKioskConnection() {
 
   const [voiceGuideOn, setVoiceGuideOn] = useState(true);
 
-  // 직접 연결자/공유 참가자 각각의 존재 여부 (음성 안내는 클라이언트에서 최종 판단)
   const [hasDirect, setHasDirect] = useState(false);
   const [hasShared, setHasShared] = useState(false);
 
@@ -71,7 +70,6 @@ export function useKioskConnection() {
     setHasShared(false);
   };
 
-  // 서버가 라우팅을 시도하되, 대상이 없어서 되돌려보내면(kiosk-activity-self) 여기서 직접 말함
   const speakLocally = (message) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -87,13 +85,13 @@ export function useKioskConnection() {
     const cleanMessage = stripEmoji(message);
     if (!cleanMessage) return;
 
-    if (hasDirectRef.current || hasSharedRef.current) {
-      // 리모컨(직접이든 공유든)이 있으면 서버가 알아서 올바른 대상에게 보내줌
+    if (hasDirectRef.current) {
+      // 직접 연결자가 있으면 그쪽에서만 소리나게 서버로 전달
       socket.emit("kiosk-activity", { code: kioskCodeRef.current, message: cleanMessage, langId: kioskLangRef.current });
       return;
     }
 
-    // 아무도 연결 안 되어 있으면 키오스크가 직접 말함
+    // 직접 연결자가 없으면(공유만 있거나 아무도 없으면) 키오스크가 직접 말함
     speakLocally(cleanMessage);
   };
 
@@ -118,12 +116,10 @@ export function useKioskConnection() {
   }, []);
 
   useEffect(() => {
-    // 대상이 없어서 서버가 되돌려보낸 안내 메시지 — 키오스크가 직접 말함
     const onActivitySelf = ({ message }) => {
       speakLocally(stripEmoji(message));
     };
 
-    // 리모컨 참가/구성 변경 시, 존재 여부만 갱신 (음성 대상은 notify 호출 시점에 판단)
     const onRosterChanged = ({ hasDirect: d, hasShared: s }) => {
       setHasDirect(d);
       setHasShared(s);
@@ -185,12 +181,6 @@ export function useKioskConnection() {
     handleRegenerateCode();
   };
 
-  // 장바구니 요약 텍스트를 리모컨(들)에게 실시간으로 전달
-  const broadcastCartSummary = (summaryText) => {
-    if (!kioskCodeRef.current) return;
-    socket.emit("cart-updated", { code: kioskCodeRef.current, summaryText });
-  };
-
   return {
     t,
     kioskLang,
@@ -206,6 +196,5 @@ export function useKioskConnection() {
     notify,
     handleRegenerateCode,
     finishAndResetKiosk,
-    broadcastCartSummary,
   };
 }
