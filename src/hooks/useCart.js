@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { computeUnitPrice } from "../data/menu";
+import { computeUnitPrice, format } from "../data/menu";
 import { socket } from "./useKioskConnection";
 
 const ORDER_COUNTER_KEY = "kiosk-order-counter";
@@ -33,12 +33,8 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
     cartRef.current = cart;
   }, [cart]);
 
-  // 장바구니가 바뀔 때마다 배열 전체를 리모컨(들)에게 전달
   const broadcastCart = (nextCart) => {
-    if (!kioskCodeRef?.current) {
-      console.warn("kioskCodeRef가 없어서 장바구니를 리모컨에 전송하지 못했어요");
-      return;
-    }
+    if (!kioskCodeRef?.current) return;
     socket.emit("cart-state-updated", { code: kioskCodeRef.current, cart: nextCart });
   };
 
@@ -53,25 +49,36 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
 
     setCart((prev) => {
       const existing = prev.find((c) => c.cartId === cartId);
-      const next = existing
-        ? prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c))
-        : [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
-      return next;
+      if (existing) return prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
+      return [...prev, { cartId, id: item.id, qty: 1, options, unitPrice }];
     });
 
     notify(`${t.menu[item.id]} ${t.addToCartBtn}`);
   };
 
   const changeQty = (cartId, delta) => {
+    const existing = cart.find((c) => c.cartId === cartId);
+
     setCart((prev) =>
       prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + delta } : c)).filter((c) => c.qty > 0)
     );
+
+    if (existing && t) {
+      const newQty = existing.qty + delta;
+      if (newQty <= 0) {
+        notify(format(t.removedFromCartToast, { name: t.menu[existing.id] }));
+      } else {
+        notify(format(t.qtyChangedToast, { name: t.menu[existing.id], n: newQty }));
+      }
+    }
   };
 
   const removeItem = (cartId) => {
     const removed = cart.find((c) => c.cartId === cartId);
     setCart((prev) => prev.filter((c) => c.cartId !== cartId));
-    if (removed) notify(t.menu[removed.id]);
+    if (removed && t) {
+      notify(format(t.removedFromCartToast, { name: t.menu[removed.id] }));
+    }
   };
 
   const clearCart = () => {
@@ -79,7 +86,6 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
     notify(t.clearBtn);
   };
 
-  // 리모컨에서 온 수량조절/삭제/비우기 요청을 처리
   useEffect(() => {
     const onQtyRequested = ({ cartId, delta }) => changeQty(cartId, delta);
     const onRemoveRequested = ({ cartId }) => removeItem(cartId);
