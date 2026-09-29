@@ -294,6 +294,22 @@ body {
 .menu-name { font-size: 15px; font-weight: 700; }
 .menu-price { font-size: 13px; color: #d6b98c; }
 
+/* 쉬운 화면 모드: 실제 메뉴 사진 */
+.menu-photo {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 4px;
+}
+.menu-item.easy {
+  padding-bottom: 14px;
+}
+.menu-item.easy .menu-name {
+  font-size: 18px;
+}
+.kiosk.large .menu-photo { height: 150px; }
+
 .payment-overlay {
   position: fixed;
   inset: 0;

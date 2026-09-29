@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { CATEGORIES, MENU, WHIP_AVAILABLE_IDS, FIXED_ICE_IDS, DEFAULT_OPTIONS, getQrImageUrl, computeUnitPrice, buildOptionSummary, format } from "./data/menu";
-import { useKioskConnection, socket } from "./hooks/useKioskConnection";
+import { CATEGORIES, MENU, WHIP_AVAILABLE_IDS, FIXED_ICE_IDS, DEFAULT_OPTIONS, getQrImageUrl, getMenuImageUrl, computeUnitPrice, buildOptionSummary, format } from "./data/menu";
+import { useKioskConnection, socket, SERVER_URL } from "./hooks/useKioskConnection";
 import { useCart } from "./hooks/useCart";
 
 const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
@@ -12,6 +12,7 @@ export default function App() {
     t,
     largeText,
     highContrast,
+    easyMode,
     kioskCode,
     kioskCodeRef,
     remainingSec,
@@ -147,8 +148,21 @@ export default function App() {
 
             <div className="menu-grid">
               {filteredMenu.map((item) => (
-                <button key={item.id} className="menu-item" onClick={() => openOptions(item)}>
-                  <span className="menu-icon">{item.icon}</span>
+                <button key={item.id} className={`menu-item ${easyMode ? "easy" : ""}`} onClick={() => openOptions(item)}>
+                  {easyMode ? (
+                    <img
+                      className="menu-photo"
+                      src={getMenuImageUrl(SERVER_URL, item.id)}
+                      alt={t.menu[item.id]}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                        e.target.nextSibling.style.display = "block";
+                      }}
+                    />
+                  ) : null}
+                  <span className="menu-icon" style={easyMode ? { display: "none" } : undefined}>
+                    {item.icon}
+                  </span>
                   <span className="menu-name">{t.menu[item.id]}</span>
                   <span className="menu-price">{item.price.toLocaleString()}원~</span>
                 </button>

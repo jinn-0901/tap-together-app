@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
+export const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
 export const socket = io(SERVER_URL);
 
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -24,6 +24,7 @@ export function useKioskConnection() {
   const [kioskLang, setKioskLang] = useState("ko");
   const [largeText, setLargeText] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+  const [easyMode, setEasyMode] = useState(false);
 
   const [voiceGuideOn, setVoiceGuideOn] = useState(true);
 
@@ -65,6 +66,7 @@ export function useKioskConnection() {
     setKioskLang("ko");
     setLargeText(false);
     setHighContrast(false);
+    setEasyMode(false);
     setVoiceGuideOn(true);
     setHasDirect(false);
     setHasShared(false);
@@ -138,6 +140,7 @@ export function useKioskConnection() {
       if (featureId === "large-text") setLargeText(on);
       if (featureId === "high-contrast") setHighContrast(on);
       if (featureId === "voice-guide") setVoiceGuideOn(on);
+      if (featureId === "easy-mode") setEasyMode(on);
     };
 
     socket.on("kiosk-activity-self", onActivitySelf);
@@ -187,6 +190,7 @@ export function useKioskConnection() {
     kioskLangRef,
     largeText,
     highContrast,
+    easyMode,
     voiceGuideOn,
     hasDirect,
     hasShared,

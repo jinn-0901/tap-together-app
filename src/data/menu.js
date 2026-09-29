@@ -21,6 +21,9 @@ export const DEFAULT_OPTIONS = { size: "regular", whip: "none", topping: "none",
 export const getQrImageUrl = (value) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(value)}`;
 
+// 쉬운 화면 모드에서 쓸 실제 메뉴 사진 URL (없으면 프론트에서 자동으로 이모지로 대체됨)
+export const getMenuImageUrl = (serverUrl, itemId) => `${serverUrl}/menu-images/${itemId}.jpg`;
+
 export const computeUnitPrice = (item, options) =>
   item.price +
   (options.size === "large" ? ADDON_PRICE.sizeLarge : 0) +
