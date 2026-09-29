@@ -45,7 +45,10 @@ export default function App() {
       const item = MENU.find((m) => m.id === itemId);
       if (!item || !t) return;
 
-      const finalOptions = FIXED_ICE_IDS.includes(item.id) ? { ...options, hotIce: "hot" } : options;
+      // options가 없거나 이상한 값으로 오는 경우(위조/구버전 클라이언트 등)에도
+      // computeUnitPrice에서 options.size 등을 읽다가 죽지 않도록 항상 객체로 보정
+      const safeOptions = options && typeof options === "object" ? options : {};
+      const finalOptions = FIXED_ICE_IDS.includes(item.id) ? { ...safeOptions, hotIce: "hot" } : { ...DEFAULT_OPTIONS, ...safeOptions };
       setActiveCategory(item.category);
 
       if (wantsToBuy) {
