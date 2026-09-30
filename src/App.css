@@ -59,10 +59,24 @@ body {
 }
 
 .kiosk-card.wide { max-width: 920px; text-align: left; }
-.kiosk-card.wide h1, .kiosk-card.wide .subtitle { text-align: center; }
+.kiosk-card.wide h1, .kiosk-card.wide .subtitle, .kiosk-card.wide .remote-connected-indicator { text-align: center; }
+.kiosk-card.wide .remote-connected-indicator { display: block; width: fit-content; }
 
 .kiosk-card h1 { font-size: 30px; margin-bottom: 6px; }
 .subtitle { color: #d6b98c; margin-bottom: 24px; }
+
+.remote-connected-indicator {
+  display: inline-block;
+  margin: 0 auto 14px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #f87171;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+}
 
 .code-box {
   display: flex;
@@ -563,6 +577,12 @@ body {
 .kiosk.high-contrast .cart-item {
   background: #000000;
   border: 2px solid #ffffff;
+}
+
+.kiosk.high-contrast .remote-connected-indicator {
+  background: #000000;
+  border: 2px solid #f87171;
+  color: #f87171;
 }
 
 .kiosk.high-contrast .qr-wrap {
