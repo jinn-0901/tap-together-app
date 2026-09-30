@@ -210,9 +210,13 @@ export function useKioskConnection() {
   };
 
   const finishAndResetKiosk = () => {
+    // handleRegenerateCode()를 그대로 부르면 "kiosk-reset"(결제 완료로 나감) 바로 뒤에
+    // "kiosk-manual-refresh"(수동 새로고침)까지 또 보내서 서버 로그가 두 번 찍히고
+    // resetKioskDefaults()도 중복 호출됨 — 여기서는 새 코드만 바로 받아오면 됨
+    // (request-kiosk-code 핸들러가 이전 코드의 리모컨 정리까지 알아서 함)
     socket.emit("kiosk-reset", kioskCodeRef.current);
     resetKioskDefaults();
-    handleRegenerateCode();
+    requestNewCode();
   };
 
   return {

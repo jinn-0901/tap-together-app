@@ -139,12 +139,13 @@ export default function App() {
         <p className="subtitle">{t.subtitle}</p>
 
         {/* 원격/공유 참가자가 붙어 있는 동안엔 항상 켜져 있는 표시등 —
-            악용(누군가 몰래 연결) 방지를 위해 연결 여부를 화면에서 계속 알 수 있게 함 */}
-        {(hasDirect || hasShared) && (
-          <p className="remote-connected-indicator" role="status" aria-live="polite">
-            {t.remoteConnectedIndicator}
-          </p>
-        )}
+            악용(누군가 몰래 연결) 방지를 위해 연결 여부를 화면에서 계속 알 수 있게 함.
+            조건부로 마운트/언마운트하면 화면을 읽어주는 프로그램이 새로 생긴 live
+            region의 내용을 못 읽는 경우가 있어서, 요소는 항상 그대로 두고 내용만
+            비웠다 채움(비어있을 땐 CSS로 감춤) */}
+        <p className="remote-connected-indicator" role="status" aria-live="polite">
+          {(hasDirect || hasShared) ? t.remoteConnectedIndicator : ""}
+        </p>
 
         <div className="code-box">
           <div className="qr-wrap">

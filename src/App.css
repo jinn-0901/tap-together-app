@@ -65,6 +65,10 @@ body {
 .kiosk-card h1 { font-size: 30px; margin-bottom: 6px; }
 .subtitle { color: #d6b98c; margin-bottom: 24px; }
 
+.remote-connected-indicator:empty {
+  display: none;
+}
+
 .remote-connected-indicator {
   display: inline-block;
   margin: 0 auto 14px;
