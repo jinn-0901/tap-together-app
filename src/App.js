@@ -16,6 +16,8 @@ export default function App() {
     kioskCode,
     kioskCodeRef,
     remainingSec,
+    hasDirect,
+    hasShared,
     liveMessage,
     notify,
     handleRegenerateCode,
@@ -135,6 +137,14 @@ export default function App() {
       <div className="kiosk-card wide">
         <h1>{t.kioskTitle}</h1>
         <p className="subtitle">{t.subtitle}</p>
+
+        {/* 원격/공유 참가자가 붙어 있는 동안엔 항상 켜져 있는 표시등 —
+            악용(누군가 몰래 연결) 방지를 위해 연결 여부를 화면에서 계속 알 수 있게 함 */}
+        {(hasDirect || hasShared) && (
+          <p className="remote-connected-indicator" role="status" aria-live="polite">
+            {t.remoteConnectedIndicator}
+          </p>
+        )}
 
         <div className="code-box">
           <div className="qr-wrap">
