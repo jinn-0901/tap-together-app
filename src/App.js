@@ -26,6 +26,7 @@ export default function App() {
     cart,
     paymentStatus,
     orderNumber,
+    pendingRemoteDineType,
     addItemToCart,
     changeQty,
     removeItem,
@@ -34,7 +35,9 @@ export default function App() {
     totalCount,
     handleCheckoutClick,
     startPayment,
-    completeRemotePayment,
+    requestRemoteCheckout,
+    approveRemoteCheckout,
+    declineRemoteCheckout,
   } = useCart({ t, notify, finishAndResetKiosk, kioskCodeRef });
 
   const [activeCategory, setActiveCategory] = useState("coffee");
@@ -67,8 +70,8 @@ export default function App() {
   }, [t]);
 
   useEffect(() => {
-    const onCheckoutRequested = () => {
-      completeRemotePayment();
+    const onCheckoutRequested = ({ dineType }) => {
+      requestRemoteCheckout(dineType);
     };
     socket.on("checkout-requested-by-remote", onCheckoutRequested);
     return () => socket.off("checkout-requested-by-remote", onCheckoutRequested);
@@ -349,6 +352,29 @@ export default function App() {
             <div className="dine-type-choices">
               <button className="dine-type-btn" onClick={() => { notify(t.dineIn); startPayment(); }}>🍽️ {t.dineIn}</button>
               <button className="dine-type-btn" onClick={() => { notify(t.takeout); startPayment(); }}>🥤 {t.takeout}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentStatus === "confirm-remote" && (
+        <div className="payment-overlay">
+          <div
+            className="dine-type-box"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.remoteCheckoutConfirmTitle}
+          >
+            <h3>{t.remoteCheckoutConfirmTitle}</h3>
+            <p>{t.remoteCheckoutConfirmDesc}</p>
+            {pendingRemoteDineType && (
+              <p className="subtitle">
+                {pendingRemoteDineType === "dine-in" ? `🍽️ ${t.dineIn}` : `🥤 ${t.takeout}`}
+              </p>
+            )}
+            <div className="dine-type-choices">
+              <button className="checkout-btn" onClick={approveRemoteCheckout}>{t.confirmBtn}</button>
+              <button className="refresh-btn" onClick={declineRemoteCheckout}>{t.cancelBtn}</button>
             </div>
           </div>
         </div>

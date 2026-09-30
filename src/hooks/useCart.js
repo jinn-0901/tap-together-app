@@ -25,6 +25,7 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
   const [cart, setCart] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState("idle");
   const [orderNumber, setOrderNumber] = useState(null);
+  const [pendingRemoteDineType, setPendingRemoteDineType] = useState(null);
 
   const orderCounterRef = useRef(loadOrderCounter());
   const cartRef = useRef([]);
@@ -138,28 +139,52 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
     }, 1500);
   };
 
-  const completeRemotePayment = () => {
+  // 원격(가족)이 결제를 요청해도 바로 완료 처리하지 않음 — 최종 결제 확정은 반드시
+  // 매장 키오스크 앞에서 사람이 직접 눌러 확인해야 하는 대기 상태로만 전환함
+  // (원격/공유 참가자가 결제까지 마음대로 끝낼 수 있었던 이전 구조를 분리)
+  const requestRemoteCheckout = (dineType) => {
     if (cart.length === 0) return;
+    setPendingRemoteDineType(dineType);
+    setPaymentStatus("confirm-remote");
+    notify(t.remoteCheckoutConfirmPrompt);
+  };
 
-    const num = orderCounterRef.current;
-    orderCounterRef.current += 1;
-    saveOrderCounter(orderCounterRef.current);
-    setOrderNumber(num);
-    setPaymentStatus("done");
-    notify(`${t.doneLabel} ${t.orderNumberLabel.replace("{n}", num)}`);
+  const approveRemoteCheckout = () => {
+    setPaymentStatus("processing");
+    notify(t.processingLabel);
 
     setTimeout(() => {
-      setCart([]);
-      setPaymentStatus("idle");
-      setOrderNumber(null);
-      finishAndResetKiosk();
-    }, 3000);
+      const num = orderCounterRef.current;
+      orderCounterRef.current += 1;
+      saveOrderCounter(orderCounterRef.current);
+      setOrderNumber(num);
+      setPaymentStatus("done");
+      setPendingRemoteDineType(null);
+      notify(`${t.doneLabel} ${t.orderNumberLabel.replace("{n}", num)}`);
+
+      setTimeout(() => {
+        setCart([]);
+        setPaymentStatus("idle");
+        setOrderNumber(null);
+        finishAndResetKiosk();
+      }, 3000);
+    }, 1500);
+  };
+
+  const declineRemoteCheckout = () => {
+    setPaymentStatus("idle");
+    setPendingRemoteDineType(null);
+    notify(t.remoteCheckoutDeclinedLocal);
+    if (kioskCodeRef?.current) {
+      socket.emit("remote-checkout-declined", kioskCodeRef.current);
+    }
   };
 
   return {
     cart,
     paymentStatus,
     orderNumber,
+    pendingRemoteDineType,
     addItemToCart,
     changeQty,
     removeItem,
@@ -168,6 +193,8 @@ export function useCart({ t, notify, finishAndResetKiosk, kioskCodeRef }) {
     totalCount,
     handleCheckoutClick,
     startPayment,
-    completeRemotePayment,
+    requestRemoteCheckout,
+    approveRemoteCheckout,
+    declineRemoteCheckout,
   };
 }
