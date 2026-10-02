@@ -41,6 +41,7 @@ export function useKioskConnection() {
   const voiceGuideRef = useRef(true);
   const hasDirectRef = useRef(false);
   const hasSharedRef = useRef(false);
+  const easyModeRef = useRef(false);
 
   const t = translationsData ? translationsData[kioskLang] || translationsData.ko : null;
 
@@ -68,6 +69,10 @@ export function useKioskConnection() {
   useEffect(() => {
     hasSharedRef.current = hasShared;
   }, [hasShared]);
+
+  useEffect(() => {
+    easyModeRef.current = easyMode;
+  }, [easyMode]);
 
   const resetKioskDefaults = () => {
     setKioskLang("ko");
@@ -174,11 +179,22 @@ export function useKioskConnection() {
       if (featureId === "easy-mode") setEasyMode(on);
     };
 
+    // 새로 들어온 리모컨이 자기 저장된 설정(끔)으로 시작하는 대신, 지금 키오스크가
+    // 쉬운 화면 모드(실제 메뉴 사진)인지를 바로 알 수 있게 서버가 물어보면 답해줌
+    const onRequestEasyModeForNewRemote = ({ targetSocketId }) => {
+      socket.emit("easy-mode-for-new-remote", {
+        code: kioskCodeRef.current,
+        targetSocketId,
+        on: easyModeRef.current,
+      });
+    };
+
     socket.on("kiosk-activity-self", onActivitySelf);
     socket.on("remote-roster-changed-for-kiosk", onRosterChanged);
     socket.on("all-remotes-left", onAllRemotesLeft);
     socket.on("language-changed", onLanguageChanged);
     socket.on("feature-toggled", onFeatureToggled);
+    socket.on("request-easy-mode-for-new-remote", onRequestEasyModeForNewRemote);
 
     return () => {
       socket.off("kiosk-activity-self", onActivitySelf);
@@ -186,6 +202,7 @@ export function useKioskConnection() {
       socket.off("all-remotes-left", onAllRemotesLeft);
       socket.off("language-changed", onLanguageChanged);
       socket.off("feature-toggled", onFeatureToggled);
+      socket.off("request-easy-mode-for-new-remote", onRequestEasyModeForNewRemote);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [translationsData]);
