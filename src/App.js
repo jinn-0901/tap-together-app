@@ -142,8 +142,14 @@ export default function App() {
             악용(누군가 몰래 연결) 방지를 위해 연결 여부를 화면에서 계속 알 수 있게 함.
             조건부로 마운트/언마운트하면 화면을 읽어주는 프로그램이 새로 생긴 live
             region의 내용을 못 읽는 경우가 있어서, 요소는 항상 그대로 두고 내용만
-            비웠다 채움(비어있을 땐 CSS로 감춤) */}
-        <p className="remote-connected-indicator" role="status" aria-live="polite">
+            비웠다 채움. 단, React는 빈 문자열도 빈 텍스트 노드로 렌더링해서 CSS
+            :empty로는 못 숨기므로(패딩만 남은 빨간 동그라미가 계속 보임), 연결
+            여부에 따라 보이기용 클래스를 따로 켜고 끔 */}
+        <p
+          className={`remote-connected-indicator${hasDirect || hasShared ? "" : " remote-connected-indicator-off"}`}
+          role="status"
+          aria-live="polite"
+        >
           {(hasDirect || hasShared) ? t.remoteConnectedIndicator : ""}
         </p>
 

@@ -65,10 +65,6 @@ body {
 .kiosk-card h1 { font-size: 30px; margin-bottom: 6px; }
 .subtitle { color: #d6b98c; margin-bottom: 24px; }
 
-.remote-connected-indicator:empty {
-  display: none;
-}
-
 .remote-connected-indicator {
   display: inline-block;
   margin: 0 auto 14px;
@@ -80,6 +76,13 @@ body {
   font-weight: 700;
   font-size: 14px;
   text-align: center;
+}
+
+/* 연결 안 됐을 때 켜지는 클래스 — React가 빈 문자열도 빈 텍스트 노드로 만들어서
+   CSS :empty로는 안 걸리기 때문에(패딩/테두리만 남은 빨간 동그라미가 계속
+   보이던 버그), JS에서 연결 여부로 직접 켜고 끔 */
+.remote-connected-indicator-off {
+  display: none;
 }
 
 .code-box {
