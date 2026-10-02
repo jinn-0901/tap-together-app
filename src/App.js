@@ -47,7 +47,7 @@ export default function App() {
   const [draftOptions, setDraftOptions] = useState(DEFAULT_OPTIONS);
 
   useEffect(() => {
-    const onVoiceOrderReceived = ({ itemId, options, wantsToBuy }) => {
+    const onVoiceOrderReceived = ({ itemId, options }) => {
       const item = MENU.find((m) => m.id === itemId);
       if (!item || !t) return;
 
@@ -57,13 +57,10 @@ export default function App() {
       const finalOptions = FIXED_ICE_IDS.includes(item.id) ? { ...safeOptions, hotIce: "hot" } : { ...DEFAULT_OPTIONS, ...safeOptions };
       setActiveCategory(item.category);
 
-      if (wantsToBuy) {
-        addItemToCart(item, finalOptions);
-      } else {
-        setOptionsFor(item);
-        setDraftOptions(finalOptions);
-        notify(t.menu[item.id]);
-      }
+      // 음성으로 옵션까지 말했으면 그 옵션으로, 메뉴 이름만 말했으면 기본 옵션으로
+      // 바로 장바구니에 담음 — 옵션 선택 화면을 또 띄우면 음성으로 다 말했는데도
+      // 한 번 더 화면을 봐야 해서 음성 주문의 장점이 없어짐
+      addItemToCart(item, finalOptions);
     };
 
     socket.on("voice-order-received", onVoiceOrderReceived);
