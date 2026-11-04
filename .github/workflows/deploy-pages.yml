@@ -1,0 +1,66 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # 기본 서버 주소는 레포의 .env에 들어 있음.
+      # 아래 변수들은 레포 Settings > Secrets and variables > Actions > Variables에서
+      # 만들면 .env보다 우선함 (만들지 않으면 아래 기본값 사용):
+      #   REACT_APP_SERVER_URL       다른 서버를 쓰고 싶을 때
+      #   REACT_APP_REMOTE_SITE_URL  리모컨(web) 사이트 주소. 기본값은 같은 계정의 tap-together-web Pages
+      #                              (포크해도 자기 계정의 tap-together-web으로 QR이 만들어짐)
+      - name: Apply optional repository variables
+        env:
+          SERVER_URL: ${{ vars.REACT_APP_SERVER_URL }}
+          REMOTE_SITE_URL: ${{ vars.REACT_APP_REMOTE_SITE_URL }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ -n "$SERVER_URL" ]; then
+            echo "REACT_APP_SERVER_URL=$SERVER_URL" >> "$GITHUB_ENV"
+          fi
+          OWNER_LOWER=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          echo "REACT_APP_REMOTE_SITE_URL=${REMOTE_SITE_URL:-https://${OWNER_LOWER}.github.io/tap-together-web}" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: npm run build
+        env:
+          PUBLIC_URL: /${{ github.event.repository.name }}
+          CI: "false"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -108,7 +108,8 @@ export default function App() {
     closeOptions();
   };
 
-  const qrValue = kioskCode ? `${REMOTE_SITE_URL}/${kioskCode}` : "";
+  // GitHub Pages는 /123456 같은 경로 새로고침이 404라서 코드를 ?code= 쿼리로 넘김
+  const qrValue = kioskCode ? `${REMOTE_SITE_URL.replace(/\/+$/, "")}/?code=${kioskCode}` : "";
 
   const formatTime = (sec) => {
     const m = Math.floor(sec / 60);
