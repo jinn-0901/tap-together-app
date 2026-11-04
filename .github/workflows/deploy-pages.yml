@@ -25,7 +25,9 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      # package-lock.json이 package.json(socket.io-client 등)과 어긋나 있어 npm ci는 실패하므로 npm install 사용
+      # (로컬에서 npm install을 한 번 실행해 락파일을 갱신해 커밋하면 npm ci로 되돌려도 됨)
+      - run: npm install --no-audit --no-fund
 
       # 기본 서버 주소는 레포의 .env에 들어 있음.
       # 아래 변수들은 레포 Settings > Secrets and variables > Actions > Variables에서
