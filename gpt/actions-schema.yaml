@@ -1,0 +1,132 @@
+openapi: 3.1.0
+info:
+  title: 탭투게더 메뉴 도우미 (GitHub)
+  description: 학생의 GitHub 프로젝트에서 "메뉴 수정" 작업을 실행하고, 그 결과를 확인해요.
+  version: "1.0.0"
+servers:
+  - url: https://api.github.com
+paths:
+  /user:
+    get:
+      operationId: getAuthenticatedUser
+      summary: 로그인한 학생의 GitHub 아이디(login)를 알아내요.
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: 로그인한 사람의 정보
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  login:
+                    type: string
+                    description: 학생의 GitHub 아이디
+  /repos/{owner}/{repo}/actions/workflows/edit-menu.yml/dispatches:
+    post:
+      operationId: runEditMenu
+      summary: 학생의 프로젝트에서 메뉴 수정 작업을 시작해요. (성공하면 내용 없이 204)
+      x-openai-isConsequential: false
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          description: 학생의 GitHub 아이디
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          description: 프로젝트 이름
+          schema:
+            type: string
+            enum:
+              - tap-together-app
+              - tap-together-web
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ref
+                - inputs
+              properties:
+                ref:
+                  type: string
+                  enum:
+                    - main
+                inputs:
+                  type: object
+                  required:
+                    - edit
+                  properties:
+                    edit:
+                      type: string
+                      description: 메뉴 수정 요청을 JSON 글자로 쓴 것. 예 {"action":"update","id":"americano","price":5000}
+      responses:
+        "204":
+          description: 작업이 시작됐어요.
+  /repos/{owner}/{repo}/actions/workflows/{workflow_file}/runs:
+    get:
+      operationId: getWorkflowRuns
+      summary: 가장 최근 작업이 끝났는지, 성공했는지 확인해요.
+      x-openai-isConsequential: false
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - tap-together-app
+              - tap-together-web
+        - name: workflow_file
+          in: path
+          required: true
+          description: edit-menu.yml 은 메뉴 수정 작업, deploy-pages.yml 은 사이트에 올리는 작업
+          schema:
+            type: string
+            enum:
+              - edit-menu.yml
+              - deploy-pages.yml
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+            maximum: 3
+      responses:
+        "200":
+          description: 최근 작업 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflow_runs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          description: queued(기다리는 중), in_progress(하는 중), completed(끝남)
+                        conclusion:
+                          type:
+                            - string
+                            - "null"
+                          description: success(성공), failure(실패) 등. 끝나기 전에는 비어 있어요.
+                        html_url:
+                          type: string
+                          description: 결과 페이지 주소
+                        created_at:
+                          type: string

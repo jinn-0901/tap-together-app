@@ -1,0 +1,53 @@
+name: Edit menu (ChatGPT helper)
+
+# ChatGPT 도우미(GPT)가 "메뉴 이름 바꿔줘" 같은 말을 JSON으로 바꿔서 이 작업을 실행시켜요.
+# 직접 실행해 볼 수도 있어요: Actions 탭 → Edit menu (ChatGPT helper) → Run workflow → edit 칸에 아래처럼 쓰기
+#   {"action":"update","id":"americano","names":{"ko":"초코빙수"},"price":5000}
+on:
+  workflow_dispatch:
+    inputs:
+      edit:
+        description: '메뉴 수정 요청 (JSON). 예: {"action":"update","id":"americano","price":5000}'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+# 여러 요청이 동시에 와도 한 번에 하나씩 차례로 처리해요
+concurrency:
+  group: edit-menu
+  cancel-in-progress: false
+
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 입력은 환경변수로만 넘겨요 (명령어에 직접 끼워 넣지 않아서 안전해요)
+      - name: Apply the menu edit
+        env:
+          EDIT_JSON: ${{ inputs.edit }}
+        run: node .github/scripts/edit-menu.mjs
+
+      # 저장하면 자동 배포가 안 돌기 때문에(봇이 만든 저장은 다른 작업을 깨우지 않아요) 배포를 직접 실행해요
+      - name: Save and deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "바뀐 내용이 없어서 저장하지 않았어요."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/menu.js
+          git commit -m "Edit menu via ChatGPT helper"
+          git push
+          gh workflow run deploy-pages.yml --ref "${GITHUB_REF_NAME}"
