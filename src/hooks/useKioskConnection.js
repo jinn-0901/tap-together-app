@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
+import { applyMenuNames } from "../data/menu";
 
 export const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
 export const socket = io(SERVER_URL);
@@ -48,7 +49,7 @@ export function useKioskConnection() {
   useEffect(() => {
     fetch(`${SERVER_URL}/translations/app`)
       .then((res) => res.json())
-      .then((data) => setTranslationsData(data))
+      .then((data) => setTranslationsData(applyMenuNames(data)))
       .catch(() => setTranslationsData(null));
   }, []);
 
