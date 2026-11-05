@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import { CATEGORIES, MENU, WHIP_AVAILABLE_IDS, FIXED_ICE_IDS, DEFAULT_OPTIONS, getQrImageUrl, getMenuImageUrl, computeUnitPrice, buildOptionSummary, format } from "./data/menu";
-import { useKioskConnection, socket, SERVER_URL } from "./hooks/useKioskConnection";
+import { useKioskConnection, socket } from "./hooks/useKioskConnection";
 import { useCart } from "./hooks/useCart";
 
 const REMOTE_SITE_URL = process.env.REACT_APP_REMOTE_SITE_URL || "http://localhost:3000";
@@ -191,7 +191,7 @@ export default function App() {
                     <span className="menu-photo-wrap">
                       <img
                         className="menu-photo"
-                        src={getMenuImageUrl(SERVER_URL, item.id)}
+                        src={getMenuImageUrl(item)}
                         alt={t.menu[item.id]}
                         onError={(e) => {
                           e.target.parentElement.style.display = "none";
