@@ -29,33 +29,27 @@
 
 ---
 
-## 2. 메뉴 바꾸기 (ChatGPT에게 말만 하면 돼요)
+## 2. 메뉴 바꾸기 (ChatGPT에게 말하고, 버튼 한 번)
 
-ChatGPT를 내 GitHub와 **연결**해 두면, "메뉴 바꿔 줘"라고 말하는 것만으로 ChatGPT가 직접 고쳐 줘요. 무료 ChatGPT면 돼요.
+모둠마다 무료 ChatGPT 하나면 돼요. ChatGPT가 "바꾸는 글"을 만들어 주고, 우리가 GitHub의 버튼에 붙여넣으면 메뉴가 자동으로 바뀌어요.
 
-**처음 한 번 (연결하기)**
-1. chatgpt.com 에 로그인해요.
-2. 왼쪽 아래 내 이름 → **설정** → **앱**(또는 커넥터)에서 **GitHub** 를 찾아 **연결**을 눌러요.
-3. GitHub 화면이 열리면 **ChatGPT Codex Connector** 를 허용(Install / Authorize)해요.
-4. 접근할 프로젝트를 고르는 칸에서 **tap-together-app** 과 **tap-together-web** 두 개를 골라요. (모든 프로젝트를 고르지 마세요.)
-5. [`CHATGPT_PROMPT.md`](CHATGPT_PROMPT.md) 를 열고 선 사이의 글을 **전부 복사**해요.
-6. ChatGPT에서 **새 대화**를 열고, 입력창의 **+** 에서 **GitHub** 를 켠 다음, 복사한 글을 붙여넣어 보내요. "준비됐어요!"라고 하면 성공!
+**처음 한 번 (준비)**
+1. 이 프로젝트의 [`CHATGPT_PROMPT.md`](CHATGPT_PROMPT.md) 를 열고, 선 사이의 글을 **전부 복사**해요.
+2. ChatGPT(chatgpt.com)에서 **새 대화**를 열고, 붙여넣어서 보내요. "준비됐어요!"라고 하면 성공!
 
 **메뉴 바꿀 때마다**
-1. 같은 대화에서 말해요. 예:
+1. ChatGPT에게 말해요. 예:
    - `아메리카노를 "초코빙수"로 바꿔 줘. 5000원, 이모지는 🍧`
    - `딸기라떼 가격을 5000원으로 올려 줘`
    - `새 메뉴 "망고주스"를 에이드에 만들어 줘. 4500원, 🥭`
-2. "바꿀까요?" 하면 **"응"**. ChatGPT가 앱과 웹 **둘 다** 바꿔 줘요.
-3. 1~2분 뒤 사이트에서 **Ctrl + F5**. 바뀌었어요!
+2. "바꿀까요?" 하면 **"응"**. 그러면 **코드 상자**에 한 줄이 나와요. 그 한 줄을 **복사**해요.
+3. GitHub의 **tap-together-app** → **Actions** → 왼쪽 **Edit menu (ChatGPT helper)** → **Run workflow** → 칸에 **붙여넣기** → 초록 **Run workflow**.
+4. **tap-together-web 에서도 똑같이** 해요. (같은 한 줄을 또 붙여넣으면 돼요.)
+5. 1~2분 뒤 사이트에서 **Ctrl + F5**. 바뀌었어요!
 
-**사진은 ChatGPT가 못 올려요.** 사진 바꾸는 법은 [메뉴 직접 고치기](docs/menu-by-hand.md) 를 보세요.
+**사진은 ChatGPT가 못 올려요.** 사진 바꾸는 법과 직접 고치는 법은 [메뉴 직접 고치기](docs/menu-by-hand.md) 를 보세요.
 
 > 비밀번호나 개인 정보는 ChatGPT에 말하지 마세요.
-
-### ChatGPT가 "직접 못 바꿔요"라고 하면
-
-그럴 땐 "바꾸는 글" 한 줄을 코드 상자에 만들어 줘요. 그 줄을 복사해서 GitHub의 **Actions → Edit menu (ChatGPT helper) → Run workflow** 칸에 붙여넣고 초록 버튼을 눌러요. **tap-together-app 과 tap-together-web 두 곳 모두**요.
 
 ---
 
