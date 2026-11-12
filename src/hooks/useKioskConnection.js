@@ -2,6 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import { applyMenuNames } from "../data/menu";
 
+// ── 학생이 만든 리모컨 기능 (자세한 설명: docs/custom-features.md) ──
+const BUILT_IN_FEATURE_IDS = ["easy-mode", "voice", "large-text", "high-contrast", "voice-guide"];
+const isCustomFeatureId = (id) =>
+  typeof id === "string" && /^[a-z][a-z0-9-]{0,29}$/.test(id) && !BUILT_IN_FEATURE_IDS.includes(id);
+const setCustomFeatureClass = (id, on) => {
+  document.documentElement.classList.toggle(`fx-${id}`, !!on);
+};
+const clearCustomFeatureClasses = () => {
+  Array.from(document.documentElement.classList)
+    .filter((name) => name.startsWith("fx-"))
+    .forEach((name) => document.documentElement.classList.remove(name));
+};
+
 export const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:4000";
 export const socket = io(SERVER_URL);
 
@@ -76,6 +89,7 @@ export function useKioskConnection() {
   }, [easyMode]);
 
   const resetKioskDefaults = () => {
+    clearCustomFeatureClasses();
     setKioskLang("ko");
     setLargeText(false);
     setHighContrast(false);
@@ -178,6 +192,9 @@ export function useKioskConnection() {
       if (featureId === "high-contrast") setHighContrast(on);
       if (featureId === "voice-guide") setVoiceGuideOn(on);
       if (featureId === "easy-mode") setEasyMode(on);
+      // 학생이 만든 새 기능: 켜지면 화면 맨 위(html)에 fx-기능이름 표시가 붙고, 꺼지면 떨어져요.
+      // 그 표시를 보고 src/custom-features.css 의 규칙이 화면을 바꿔요.
+      if (isCustomFeatureId(featureId)) setCustomFeatureClass(featureId, on);
     };
 
     // 새로 들어온 리모컨이 자기 저장된 설정(끔)으로 시작하는 대신, 지금 키오스크가
