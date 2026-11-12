@@ -2,4 +2,7 @@
    기능이 켜지면 화면 맨 위(html)에 "fx-기능이름" 표시가 붙고, 아래 규칙이 적용돼요.
    아래 두 줄 사이는 "Edit menu (ChatGPT helper)" 가 자동으로 고쳐요. 직접 고치지 마세요. */
 /* FEATURES-START */
+/* feature:test-dark */
+.fx-test-dark .kiosk { background: #000 !important; }
+/* end:test-dark */
 /* FEATURES-END */
